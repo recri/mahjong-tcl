@@ -124,6 +124,7 @@ snit::type mahjong::layout {
     # get all of the slots in render order
     # ie, those which are obscured are drawn before those which obscure
     method get-slots {} { return $options(-slots) }
+
     # find the slots at in a z layer
     method layer-slots {z} {
 	set layer {}
@@ -313,6 +314,7 @@ snit::type mahjong::layout {
     method x-closure {xyz} { return [$self get $xyz x-closure] }
     # return the left x-adjacent
     method left-adjacent {xyz} { return [$self get $xyz left-adjacent] }
+    # return the right x-adjacent
     method right-adjacent {xyz} { return [$self get $xyz right-adjacent] }
 
     # return the block of the slot
@@ -622,8 +624,11 @@ snit::widgetadaptor mahjong::canvas {
     option -items -readonly true
     option -shuffled-items -readonly true
     option -shuffled-slots -readonly true
-    option -invert-offsets -readonly true
+    option -made-slots -readonly true
+    option -unmade-slots -readonly true
+    option -offsets -default {0 0} -readonly true
     option -trace false
+
     option -title mahjong
     option -game -default 0
     option -start-timer 0
@@ -676,13 +681,12 @@ snit::widgetadaptor mahjong::canvas {
 	    set it [$win create image 0 0 -anchor nw]
 	    dict set data name-to-item $name $it
 	    dict set data item-to-name $it $name
-	    dict set data selected-slot {}
-	    dict set data selected-item {}
-	    dict set data selected-name {}
+	    dict set data selected {}
 	    $win itemconfigure $it -image [$self normal-image $it]
 	    # puts "$it is $name $i"
 	    lappend options(-items) $it
 	}
+
 	$self history-init
 
 	$self new-game
@@ -690,81 +694,93 @@ snit::widgetadaptor mahjong::canvas {
     
     method name-to-item {name} { return [dict get $data name-to-item $name] }
     method item-to-name {item} { return [dict get $data item-to-name $item] }
-
+    method item-to-slot {item} { return [dict get $data item-to-slot $item] }
+    method slot-to-item {slot} { return [$self get-slot $slot] }
+    method slot-to-name {slot} { return [$self item-to-name [$self slot-to-item $slot]] }
+    
     method normal-image {item} { return [$tiles normal [$self item-to-name $item]] }
     method select-image {item} { return [$tiles select [$self item-to-name $item]] }
+    method blank-image {item} { return [$tiles normal white#1] }
 
     # context menu, button 3 or 2 on the background
+    # with single character accelerators on the root window
     method menu-build {} {
 	# popup menu
 	menu .m -tearoff no
-	.m add command -label {New Game} -command [list {*}[mymethod new-game]]
-	.m add command -label {Restart} -command [list {*}[mymethod restart-game]]
-	.m add separator
-	.m add command -label {Pause} -command [list {*}[mymethod pause-game]]
-	.m add command -label {Continue} -command [list {*}[mymethod continue-game]]
-	.m add separator
-	.m add command -label {Hint} -command [list {*}[mymethod hint]]
-	.m add command -label {Undo} -command [list {*}[mymethod undo]]
-	.m add command -label {Redo} -command [list {*}[mymethod redo]]
-	.m add separator
-	.m add command -label {Scores} -command [list {*}[mymethod scores]]
-	.m add command -label {Preferences} -command [list {*}[mymethod preferences]]
-	.m add command -label {Help} -command [list {*}[mymethod help]]
-	.m add separator
-	.m add checkbutton -label {Trace} -variable [myvar options(-trace)]
-	.m add separator
-	.m add command -label {Quit} -command [list destroy .]
-	# keyboard accelerators
-	foreach {key meth} {
-	    n new-game
-	    o restart-game
-	    p pause-game
-	    c continue-game
-	    h hint
-	    u undo
-	    r redo
-	    s scores
-	    p preferences
-	    q quit
+	foreach entry {
+	    {command n {New Game} new-game}
+	    {command o {Restart} restart-game}
+	    {separator}
+	    {command p {Pause} pause-game}
+	    {command c {Continue} continue-game}
+	    {separator}
+	    {command h {Hint} hint}
+	    {command u {Undo} undo}
+	    {command r {Redo} redo}
+	    {separator}
+	    {command s {Scores} scores}
+	    {command p {Preferences} preferences}
+	    {command j {Help} help}
+	    {separator}
+	    {checkbutton t {Trace} trace-toggle options(-trace)}
+	    {separator}
+	    {command q {Quit} quit}
 	} {
-	    bind . <$key> [list {*}[mymethod $meth]]
+	    foreach {entry accelerator label meth var} $entry break
+	    switch $entry {
+		separator {
+		    .m add separator
+		}
+		command {
+		    .m add command -accelerator $accelerator -label $label -command [mymethod $meth]
+		    bind . <$accelerator> [list {*}[mymethod menu-protect] $label $meth]
+		}
+		checkbutton {
+		    .m add checkbutton -accelerator $accelerator -label $label -variable [myvar $var]
+		    bind . <$accelerator> [list {*}[mymethod menu-protect] $label $meth]
+		}
+		default {
+		    error "unexpected menu entry command $entry"
+		}
+	    }
 	}
     }
+    # popup the menu when we are over the background
+    method menu-popup {w x y} {
+	if {[$win find withtag current] eq {}}  { tk_popup .m $x $y }
+    }
+    # enable and disable lists of menu entries
     method menu-enable-disable {enable disable} {
 	foreach label $enable { .m entryconfigure $label -state normal }
 	foreach label $disable { .m entryconfigure $label -state disabled }
     }
-    method menu-popup {w x y} {
-	if {[$win find withtag current] eq {}}  { tk_popup .m $x $y }
+    # protect an accelerator from calling the entry function when disabled
+    method menu-protect {label meth} {
+	if {[.m entrycget $label -state] eq {normal}} {
+	    $self $meth
+	}
     }
 
+    ##
+    ## menu functions
+    ##
     method new-game {} {
 	set options(-game) [clock seconds]
 	$self setup
 	$self restart
     }
-
     method restart-game {} {
 	$self restart
     }
-
     method pause-game {} {
-	# set the flag
 	dict set data paused true
-	# blank all the tiles
-	foreach item [$self get-items] { $win itemconfigure $item -image [$self normal-image [$self name-to-item white#1]] }
-	# turn off all inputs
-	# except continue and quit
+	foreach item [$self get-items] { $win itemconfigure $item -image [$self normal-image [$self blank-image]] }
 	$self menu-enable-disable {{Continue}} {{New Game} {Restart} {Pause} {Hint} {Undo} {Redo} {Scores} {Preferences} {Help}}
 	# turn off selection?
     }
     method continue-game {} {
-	# reenable inputs
 	$self menu-enable-disable {{New Game} {Restart} {Pause} {Hint} {Undo} {Redo} {Scores} {Preferences}} {{Continue}}
-	# unblank all tiles
 	foreach item  [$self get-items] { $win itemconfigure $item -image [$self normal-image $item] }
-	# clear the paused flag
 	dict set data paused false
     }
     method hint {} {}
@@ -772,26 +788,67 @@ snit::widgetadaptor mahjong::canvas {
     method redo {} { $self history-redo }
     method scores {} {}
     method preferences {} {}
+    method trace-toggle {} {
+	puts "-trace $options(-trace) toggled"
+	set options(-trace) [expr { ! $options(-trace)}]
+    }
     method quit {} { destroy . }
     
-    #
-    # game play
-    #
+    ##
+    ## window display helpers
+    ##
+    method resize {w wid hgt} {
+	$self adjust-window
+    }
+    
+    method inverted-offsets {} {
+	if {$options(-offsets) eq {}} {
+	    set options(-offsets) {0 0}
+	}
+	return [lmap a $options(-offsets) {expr {-$a}}]
+    }
+    
+    # compute the xoff yoff that centers the current 
+    method adjust-window {} {
+	#$win move all {*}[$self inverted-offsets]
+	foreach {x1 y1 x2 y2} [$win bbox all] break
+	set w [winfo width $win]
+	set h [winfo height $win]
+	set xoff [expr {(($w-($x2-$x1))/2) - $x1}]
+	set yoff [expr {(($h-($y2-$y1))/2) - $y1}]
+	#$win move all $xoff $yoff
+	set options(-offsets) [list $xoff $yoff]
+    }
+    
+
+    ##
+    ## game play helpers
+    ##
     method get-items {} { return $options(-items) }
 
-    method setup {} {
-	# arrange to be able to restart a game
-	# so, game number seeds random number
-	# generator, results in shuffle of -slots
-	# and -tiles
-	expr {srand($options(-game))}
-	# puts "$options(-game) [$self format-game $options(-game)] [$self scan-game [$self format-game $options(-game)]]"
-	wm title . "mahjong - [$self format-game $options(-game)]"
-	set options(-shuffled-slots) [$self shuffle [$self get-slots]]
-	set options(-shuffled-items) [$self shuffle [$self get-items]]
-	$self start-status
+    method shuffle {oldlist} {
+	set n [llength $oldlist]
+	set list $oldlist
+	for {set i 0} {$i < $n} {incr i} {
+	    set j [expr {$i+int(rand() * ($n-$i))}]
+	    if {$i != $j} {
+		set li [lindex $list $i]
+		set lj [lindex $list $j]
+		set list [lreplace [lreplace $list $j $j $li] $i $i $lj]
+	    }
+	}
+	return $list
     }
 
+    method raise-in-render-order {} {
+	foreach slot [$self get-slots] {
+	    $win raise [$layout get $slot slot]
+	}
+    }
+
+    ##
+    ## window title bar status
+    ##
     method start-status {} {
 	if { ! [dict exists $data status-started]} {
 	    dict set data status-started [after 100 [list {*}[mymethod update-status]]]
@@ -819,7 +876,7 @@ snit::widgetadaptor mahjong::canvas {
     }
 
     method count-moves {} {
-	return {?}
+	return [llength [$self find-moves $options(-made-slots)]]
     }
 
     method format-game {game} {
@@ -855,6 +912,7 @@ snit::widgetadaptor mahjong::canvas {
 	}
     }
     method history-add {args} {
+	incr options(-remaining-tiles) -2
 	dict with data history {
 	    if {[llength $items] > $count} {
 		set items [lrange $items 0 $count]
@@ -868,8 +926,8 @@ snit::widgetadaptor mahjong::canvas {
     method history-undo {} {
 	# step back
 	# turn off selection?
+	incr options(-remaining-tiles) 2
 	dict with data history {
-	    set future $count
 	    incr count -1
 	    $self move-undo {*}[lindex $items $count]
 	    if {$count > 0} {
@@ -881,6 +939,7 @@ snit::widgetadaptor mahjong::canvas {
     }
     method history-redo {} {
 	# step forward
+	incr options(-remaining-tiles) -2
 	dict with data history {
 	    $self move-redo {*}[lindex $items $count]
 	    incr count 1
@@ -896,41 +955,63 @@ snit::widgetadaptor mahjong::canvas {
     ## these change whether we're unplaying or playing
     ##
     method move-undo {item1 slot1 item2 slot2} {
-	#puts "move-undo $item1 $slot1 $item2 $slot2"
-	$win itemconfigure $item1 -image [$self normal-image $item1]
-	$win itemconfigure $item2 -image [$self normal-image $item1]
-	set twid $options(-width)
-	set thgt $options(-height)
+	puts "move-undo $item1 $slot1 $item2 $slot2"
+	set twid [$self cget -width]
+	set thgt [$self cget -height]
+	$win itemconfigure $item1 -image [$self normal-image $item1] -state normal
+	$win itemconfigure $item2 -image [$self normal-image $item1] -state normal
 	$self place-tile $slot1 $item1 $twid $thgt
 	$self place-tile $slot2 $item2 $twid $thgt
+	#$win move $item1 {*}$options(-offsets)
+	#$win move $item2 {*}$options(-offsets)
+	remove-from-list options(-unmade-slots) $slot1 $slot2
+	lappend options(-made-slots) $slot1 $slot2
+	$self raise-in-render-order
     }
     method move-redo {item1 slot1 item2 slot2} {
 	#puts "move-redo $item1 $slot1 $item2 $slot2"
-	$win itemconfigure $item1 -image {}
-	$win coords $item1 0 0
+	$win itemconfigure $item1 -image {} -state hidden
+	$win itemconfigure $item2 -image {} -state hidden
+	# $win coords $item1 0 0
+	# $win coords $item2 0 0
 	$self set-empty $slot1
-	$win itemconfigure $item2 -image {}
-	$win coords $item2 0 0
 	$self set-empty $slot2
+	remove-from-list options(-made-slots) $slot1 $slot2
+	lappend options(-unmade-slots) $slot1 $slot2
     }
-
-    method shuffle {oldlist} {
-	set n [llength $oldlist]
-	set list $oldlist
-	for {set i 0} {$i < $n} {incr i} {
-	    set j [expr {$i+int(rand() * ($n-$i))}]
-	    set li [lindex $list $i]
-	    set lj [lindex $list $j]
-	    set list [lreplace [lreplace $list $j $j $li] $i $i $lj]
+    proc remove-from-list {lname args} {
+	upvar $lname list
+	foreach a $args {
+	    set i [lsearch $list $a]
+	    if {$i < 0} { error "remove-from-list: no {$a} in {$list}" }
+	    set list [lreplace $list $i $i]
 	}
-	return $list
     }
 
+    ##
+    ## setup the next game
+    ##
+    method setup {} {
+	# arrange to be able to restart a game
+	# so, game number seeds random number
+	# generator, results in shuffle of -slots
+	# and -tiles
+	expr {srand($options(-game))}
+	# puts "$options(-game) [$self format-game $options(-game)] [$self scan-game [$self format-game $options(-game)]]"
+	wm title . "mahjong - [$self format-game $options(-game)]"
+	set options(-shuffled-slots) [$self shuffle [$self get-slots]]
+	set options(-shuffled-items) [$self shuffle [$self get-items]]
+	$self start-status
+    }
+
+    ##
+    ## start or restart the currently setup game
+    ##
     method restart {} {
 	# empty slots, reset images, clear selection, empty history
 	foreach slot [$self get-slots] { $self set-empty $slot }
 	foreach item $options(-items) { $win itemconfigure $item -image [$self normal-image $item] }
-	$self set-selected {} {} {}
+	$self clear-selected
 	$self history-empty
 
 	# pick matching pairs from available
@@ -938,14 +1019,15 @@ snit::widgetadaptor mahjong::canvas {
 	set slots $options(-shuffled-slots)
 	set twid [$self cget -width]
 	set thgt [$self cget -height]
-	set made {}
+	set options(-made-slots) {}
+	set optiosn(-unmade-slots) {}
 
 	if {$options(-trace)} {
 
 	    # stack unplaced tiles to the side
 	    # order them so the next to be played is revealed
 	    foreach item $options(-shuffled-items) {
-		$win coords $item [expr {11*$twid}] 0
+		$win coords $item [expr {12*$twid}] $thgt
 		$win lower $item
 	    }
 	    # redraw the layer frame
@@ -1006,7 +1088,6 @@ snit::widgetadaptor mahjong::canvas {
 		set sl1 [$self find-can-unplay $slots]
 		set s1 [lsearch $slots $sl1]
 		set slots [lreplace $slots $s1 $s1]
-		lappend made $sl1
 
 		## play the first open slot so the second choice sees it
 		# put the item in its slot
@@ -1017,18 +1098,13 @@ snit::widgetadaptor mahjong::canvas {
 		set sl2 [$self find-can-unplay $slots $sl1]
 		set s2 [lsearch $slots $sl2]
 		set slots [lreplace $slots $s2 $s2]
-		lappend made $sl2
 
 		# put the item in its slot
 		$self place-tile $sl2 $it2 $twid $thgt
 
 		if {$options(-trace)} { 
 		    # raise drawn slots in render order
-		    foreach xyz [$self get-slots] {
-			if {$xyz in $made} {
-			    $win raise [$layout get $xyz slot]
-			}
-		    }
+		    $self raise-in-render-order
 		    # lower undrawn slots in order
 		    #foreach item $options(-shuffled-items) {
 			#$win lower $item
@@ -1041,42 +1117,47 @@ snit::widgetadaptor mahjong::canvas {
 	    }
 	    puts "ungame completed successfully"
 	} error]} {
-	    puts $error\n$::errorInfo
+	    # puts $error\n$::errorInfo
+	    puts "ungame failed"
 	}
 
 	set options(-remaining-tiles) [expr {$nitems-[llength $items]}]
 
 	# raise slots in render order
-	foreach xyz [$self get-slots] {
-	    $win raise [$layout get $xyz slot]
-	}
+	$self raise-in-render-order
 
 	# adjust window
-	$win move all {*}[$self compute-center]
+	$self adjust-window
 
 	# compute
 	set options(-remaining-moves) [$self count-moves]
     }
     
-    method resize {w wid hgt} {
-	$win move all {*}[$self compute-center]
+    ##
+    ## game play/unplay mechanics
+    ##
+    method find-moves {slots} {
+	set moves {}
+	set slots [$self find-all-can-play $slots]
+	for {set i 0} {$i < [llength $slots]} {incr i} {
+	    set si [lindex $slots $i]
+	    set ni [$self slot-to-name $si]
+	    for {set j [expr {$i+1}]} {$j < [llength $slots]} {incr j} {
+		set sj [lindex $slots $j]
+		set nj [$self slot-to-name $sj]
+		if {[$self match $ni $nj]} {
+		    lappend moves [list $si $sj]
+		}
+	    }
+	}
+	return $moves
     }
-    
-    # compute the xoff yoff that centers the current 
-    method compute-center {} {
-	foreach {x1 y1 x2 y2} [$win bbox all] break
-	set w [winfo width $win]
-	set h [winfo height $win]
-	set xoff [expr {(($w-($x2-$x1))/2) - $x1}]
-	set yoff [expr {(($h-($y2-$y1))/2) - $y1}]
-	return [list $xoff $yoff]
-    }
-    
+
     method find-match-index {it1 items} {
-	set n1 [dict get $data item-to-name $it1]
+	set n1 [$self item-to-name $it1]
 	set index 0
 	foreach it2 $items {
-	    if {[$self match $n1 [dict get $data item-to-name $it2]]} {
+	    if {[$self match $n1 [$self item-to-name $it2]]} {
 		return $index
 	    }
 	    incr index
@@ -1090,82 +1171,21 @@ snit::widgetadaptor mahjong::canvas {
 	}
 	error "cannot unplay"
     }
-    
+    method find-all-can-unplay {slots {donotblock {}}} {
+	return [lmap slot $slots {
+	    expr {[$self can-unplay $slot $donotblock] ? $slot : [continue]}
+	}]
+    }
     method find-can-play {slots} {
 	foreach slot $slots {
 	    if {[$self can-play $slot]} { return $slot }
 	}
 	error "cannot play"
     }
-    
-    method enter {it xyz} {
-	# puts "$self enter $it $xyz"
-	foreach b {1} {
-	    $win bind $it <Button-$b> [list {*}[mymethod button] $b $it $xyz %x %y]
-	}
-    }
-    
-    method leave {it xyz} {
-	# puts "$self leave $it $xyz"
-	foreach b {1 2 3} {
-	    $win bind $it <Button-$b> {}
-	}
-    }
-    
-    method get-selected {} {
-	set selected {}
-	foreach tag {item slot name} {
-	    lappend selected [dict get $data selected-$tag]
-	    dict set data selected-$tag {}
-	}
-	return $selected
-    }
-    method set-selected {args} {
-	foreach tag {item slot name} arg $args {
-	    dict set data selected-$tag $arg
-	}
-    }
-    
-    method button {b it xyz x y} {
-	if {$b == 1} {
-	    # tile select $it $xyz
-	    # if the tile is playable
-	    if {[$self can-play $xyz]} {
-		set name [$self item-to-name $it]
-		# if there's an already selected tile
-		if {[dict get $data selected-item] ne {}} {
-		    # get the selected tile and clear the selection
-		    foreach {it1 xyz1 name1} [$self get-selected] break
-		    $win itemconfigure $it1 -image [$self normal-image $it1]
-		    # if it's the same tile
-		    if {$it == $it1} {
-			# just return, we've cancelled the selection
-			# and undone the selected image
-			return;
-		    }
-		    # if it's a match to the previously selected tile
-		    if {[$self match $name $name1]} {
-			# start counting time
-			$self start-timer
-			# remove the tiles from play
-			$self move-redo $it $xyz $it1 $xyz1
-			# keep history
-			$self history-add $it $xyz $it1 $xyz1
-			# keep score
-			incr options(-remaining-tiles) -2
-			after 0 [list {*}[mymethod update-score]]
-			return
-		    }
-		    # select the new tile in place of the old one
-		    $win itemconfigure $it -image [$self select-image $it]
-		    $self set-selected $it $xyz $name
-		} else {
-		    # select the new tile
-		    $win itemconfigure $it -image [$self select-image $it]
-		    $self set-selected $it $xyz $name
-		}
-	    }
-	}
+    method find-all-can-play {slots} {
+	return [lmap slot $slots {
+	    expr {[$self can-play $slot] ? $slot : [continue]}
+	}]
     }
 
     method place-tile {xyz it twid thgt} {
@@ -1174,23 +1194,100 @@ snit::widgetadaptor mahjong::canvas {
 	set ystep [expr {$thgt/10}]
 	set twid [expr {$twid-$xstep}]
 	set thgt [expr {$thgt-$ystep}]
-	$layout set $xyz slot $it
+	$self set-slot $xyz $it; # this is where the tile gets added to the slots in play
+	lappend options(-made-slots) $xyz
 	foreach {x y z} $xyz break
-	set x [expr {$x*$twid + $z*$xstep}]
-	set y [expr {$y*$thgt - $z*$ystep}]
+	set x [expr {(3.5+$x)*$twid + $z*$xstep}]
+	set y [expr {(0.5+$y)*$thgt - $z*$ystep}]
 	$win coords $it $x $y
-	# $win itemconfigure $it -tags [concat [$win itemcget $it -tags] z$z]
-	$win bind $it <Enter> [list {*}[mymethod enter] $it $xyz]
-	$win bind $it <Leave> [list {*}[mymethod leave] $it $xyz]
+	$win itemconfigure $it -image [$self normal-image $it] -state normal
+	$win bind $it <Enter> [list {*}[mymethod enter] $it]
+	$win bind $it <Leave> [list {*}[mymethod leave] $it]
     }
     
+    ##
+    ## tile mouse event handlers
+    ##
+    method get-selected {} { return [dict get $data selected] }
+    method is-selected {} { return [expr {[$self get-selected] ne {}}] }
+    method clear-selected {} {
+	if {[$self is-selected]} {
+	    foreach {it xyz name} [$self get-selected] break
+	    $win itemconfigure $it -image [$self normal-image $it]
+	}
+	dict set data selected {}
+    }
+    method set-selected {args} { 
+	$self clear-selected
+	if {$args ne {}} {
+	    foreach {it xyz name} $args break
+	    $win itemconfigure $it -image [$self select-image $it]
+	}
+	dict set data selected $args
+    }
+    
+    method enter {it} {
+	# puts "$self enter $it"
+	$win bind $it <Button-1> [list {*}[mymethod button] $it]
+    }
+    
+    method leave {it} {
+	# puts "$self leave $it"
+	$win bind $it <Button-1> {}
+    }
+    
+    method button {it} {
+	# puts "button $it"
+	# if the tile is playable
+	set xyz [$self item-to-slot $it]
+	set name [$self item-to-name $it]
+	if {[$self can-play $xyz]} {
+	    # puts "can play $it $xyz $name"
+	    # if there's an already selected tile
+	    if {[$self is-selected]} {
+		# get the selected tile and clear the selection
+		foreach {it1 xyz1 name1} [$self get-selected] break
+		$self clear-selected
+		# puts "already selected $it1 $xyz1 $name1"
+		# if it's the same tile
+		if {$it == $it1} {
+		    # puts "$it == $it1"
+		    # just return, we've cancelled the selection
+		    # and undone the selected image
+		    return;
+		}
+		# if it's a match to the previously selected tile
+		if {[$self match $name $name1]} {
+		    # puts "matched $name $name1"
+		    # start counting time
+		    $self start-timer
+		    # remove the tiles from play
+		    $self move-redo $it $xyz $it1 $xyz1
+		    # keep history
+		    $self history-add $it $xyz $it1 $xyz1
+		    # keep score
+		    after 0 [list {*}[mymethod update-score]]
+		    return
+		}
+		# select the new tile in place of the old one
+		$self set-selected $it $xyz $name
+		# puts "set-selected $it $xyz $name"
+		# puts "is-selected [$self is-selected]"
+		# puts "get-selected [$self get-selected]"
+	    } else {
+		# select the new tile
+		$self set-selected $it $xyz $name
+		# puts "new selected $it $xyz $name"
+		# puts "is-selected [$self is-selected]"
+		# puts "get-selected [$self get-selected]"
+	    }
+	}
+    }
 }
 
 #
-# create the layout for the "difficult" map
-# tiles, rows, blocks, layers
-# each layer of z is offset partially in x and y 
-# to make the tiles stack
+# create the layout for the "difficult" map tiles, rows, blocks, layers
+# each layer of z is drawn offset in x and y to make the tiles stack
 # layout is 7 tiles tall in y, plus a bit for the z offset,
 # and 11 tiles wide in x, add a tile for margins, so
 # take minimum of (width / 12) and ((height / 8) / 1.375)
