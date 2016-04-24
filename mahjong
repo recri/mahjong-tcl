@@ -1,0 +1,1267 @@
+#!/usr/bin/wish
+# -*- mode: Tcl; tab-width: 8; -*-
+#
+# Copyright (C) 2016 by Roger E Critchlow Jr, Cambridge, MA, USA.
+# 
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
+# 
+
+#
+# This is a reimplementation of gnome-mahjongg, my preferred time wasting
+# solitaire on linux.  For many years I have been annoyed by aspects of
+# gnome-mahjongg, but each attempt to deal with the code have been repelled
+# by the density of the frameworks used to write the program.  I literally
+# could not find the program in its source code, because most of the source
+# code is somewhere else in a software framework.  So, I have rewritten 
+# the program using Tcl, Tk, and Snit so that all of the source code will
+# be apparent to anyone wishing to modify the program.
+#
+# I will provide only the barest introduction to Tcl, Tk, and Snit because
+# you will need other resources if you really want to understand.  Start
+# with the online manuals at https://www.tcl.tk/man/ and liberally apply
+# google to your problems
+#
+# Tcl writes function calls in the form
+#	func arg arg2
+# the result of a function call is captured by square brackets 
+#	[func arg arg2]
+# variable references are written as
+#	$variable
+# variable assignment is performed by the set command
+#	set variable {1 2 3}
+# double quoted text is scanned for command and variable substitution
+#	"substitutes $variable and [func arg arg2] in line"
+# but curly brace quoted text
+#	{does not evaluate $variable or [func arg arg2]}
+# Memorizing https://www.tcl.tk/man/tcl8.6/TclCmd/Tcl.htm is a good plan.
+#
+# Tk uses Tcl to implement graphical user interfaces.  Originally a client 
+# of the X11 windowing system on Unix, Tk now happily runs as a native client
+# almost everywhere.  Tk user interface widgets are instances given names
+#	canvas .name
+# the instance name can then be used to set and retrieve configuratio options
+#	.name configure -background blue
+#	.name cget -background
+# or to run methods
+#	.name create image
+# The manual pages for Tk and the widget-demo.tcl example script will give you
+# an overview of the widgets implemented by Tk.  But Mahjong doesn't use much 
+# of all that because it is entirely implemented in one Tk canvas widget.
+#
+# Snit uses Tcl to implement a Tk style object system.  Snit is distributed as
+# part of Tcllib, a library implemented entirely in Tcl without use of extensions
+# written in C or other high level languages.
+#
+package require Tcl
+package require snit
+
+snit::type mahjong::layout {
+    option -verbose -default 1
+    option -map -default {} -configuremethod Configure
+    option -layout -readonly true
+    option -slots -readonly true
+    option -layers -readonly true
+
+    constructor {args} {
+	if {$options(-verbose) > 5} { puts "$self configure $args" }
+	$self configure {*}$args
+	#foreach slot [$self get-slots] {
+	#    puts "{$slot} {[$self left-adjacent $slot]} {[$self old-left-adjacent $slot]}"
+	#}
+    }
+
+    # create the layout from a map
+    method {Configure -map} {val} {
+	if {$options(-verbose) > 5} { puts "$self configure -map $val" }
+	set options(-map) $val
+	set options(-layout) [dict create]
+	set options(-slots) {}
+	foreach layer $options(-map) {
+	    $self expand-layout $layer
+	}
+	foreach slot $options(-slots) {
+	    $self compute-adjacent $slot
+	    $self compute-x-adjacent $slot
+	    $self compute-z-shadow $slot
+	}
+	foreach slot $options(-slots) {
+	    $self compute-x-adjacent-closure $slot
+	    $self compute-z-shadow-closure $slot
+	}
+
+    }
+
+    # maintaining slots in the layout
+    #
+    method set {xyz tag val} { dict set options(-layout) $xyz $tag $val }
+    method get {xyz tag} { return [dict get $options(-layout) $xyz $tag] }
+    method exists {xyz tag} { return [dict exists $options(-layout) $xyz $tag] }
+    method lappend {xyz tag args} { 
+	set dict [dict get $options(-layout) $xyz]
+	dict lappend dict $tag {*}$args
+	dict set options(-layout) $xyz $dict
+    }
+
+    # maintaining the primary slot in the layout
+    # this is the only one that changes after the layout is setup
+    method set-slot {slot val} { $self set $slot slot $val }
+    method get-slot {slot} { return [$self get $slot slot] }
+    method exists-slot {slot} { return [$self exists $slot slot] }
+    method set-empty {slot} { $self set-slot $slot {} }
+
+    # get all of the slots in render order
+    # ie, those which are obscured are drawn before those which obscure
+    method get-slots {} { return $options(-slots) }
+    # find the slots at in a z layer
+    method layer-slots {z} {
+	set layer {}
+	foreach slot $options(-slots) {
+	    foreach {nx ny nz} $slot break
+	    if {$nz != $z} continue
+	    lappend layer $slot
+	}
+	return $layer
+    }
+
+    # see if the slot is empty
+    method is-empty {slot} { return [expr {[$self get-slot $slot] eq {}}] }
+
+    # see if the first is recorded as adjacent to the second
+    method is-adjacent {xyz xnynzn} { return [expr {[lsearch [$self adjacent $xyz] $xnynzn] >= 0}] }
+
+    # see if the slot is an endcap
+    method is-endcap {xyz} { return [$self get $xyz endcap] }
+
+    # expand the layout map description
+    method expand-layout {layout {z 0}} {
+	if {$options(-verbose) > 5} { puts "$self expand-layout $layout" }
+	set tag [lindex $layout 0]
+	array set l [lrange $layout 1 end]
+	if {[info exists l(z)]} { set z $l(z) }
+	switch $tag {
+	    layer {
+		foreach p $l(parts) { $self expand-layout $p $z }
+	    }
+	    tile {
+		$self add-tile $l(x) $l(y) $z
+	    }
+	    row {
+		if {$options(-verbose) > 5} { puts "$tag [array get l]" }
+		for {set x $l(right)} {$x >= $l(left)} {set x [expr {$x-1}]} {
+		    if {$options(-verbose) > 5} { puts "  $x $l(y) $z" }
+		    $self add-tile $x $l(y) $z
+		}
+	    }
+	    block {
+		if {$options(-verbose) > 5} { puts "$tag [array get l]" }
+		for {set y $l(top)} {$y <= $l(bottom)} {set y [expr {$y+1}]} {
+		    if {$options(-verbose) > 5} { puts "  - $y $z" }
+		    for {set x $l(right)} {$x >= $l(left)} {set x [expr {$x-1}]} {
+			$self add-tile $x $y $z
+		    }
+		}
+	    }
+	    default { error "what is $layout doing in the map?" }
+	}
+    }
+
+    # mark two cells as adjacent in their layer
+    method add-adjacent {xyz xnynzn} { $self add-symmetric adjacent $xyz $xnynzn }
+    # mark two cells as x-adjacents, should be x-adjacent, need x-left-adjacent and x-right-adjacent, too
+    method add-x-adjacent {xyz xnynzn} { $self add-symmetric x-adjacent $xyz $xnynzn }
+    # record a symmetric relation
+    method add-symmetric {relation slot1 slot2} {
+	# puts "$self add-symmetric $relation {$slot1} {$slot2}a"
+	if {[lsearch [$self get $slot1 $relation] $slot2] < 0} {
+	    $self lappend $slot1 $relation $slot2
+	}
+	if {[lsearch [$self get $slot2 $relation] $slot1] < 0} {
+	    $self lappend $slot2 $relation $slot1
+	}
+	# puts "$relation {$slot1} is [$self get $slot1 $relation]"
+	# puts "$relation {$slot2} is [$self get $slot2 $relation]"
+    }
+    # an antisymmetric relation
+    method add-left-adjacent {slot1 slot2} {
+	if {$slot2 ni [$self get $slot1 left-adjacent]} { $self lappend $slot1 left-adjacent $slot2 }
+	if {$slot1 ni [$self get $slot2 right-adjacent]} { $self lappend $slot2 right-adjacent $slot1 }
+    }
+    method add-right-adjacent {slot1 slot2} { $self add-left-adjacent $slot2 $slot1 }
+	
+    # add a new tile to the layout
+    method add-tile {x y z} {
+	# canonicalize the coordinates
+	# trouble with x, y in double vs integer as dictionary keys
+	set x [expr {double($x)}]
+	set y [expr {double($y)}]
+	set z [expr {int($z)}]
+	if {$options(-verbose) > 5} { puts "add-tile $x $y $z" }
+	set xyz [list $x $y $z]
+	# initialize slot
+	$self set-slot $xyz {}
+	foreach {tag val} [list xyz $xyz adjacent {} x-adjacent {} x-closure {} left-adjacent {} right-adjacent {} z-shadow {} z-closure {} endcap 0] {
+	    $self set $xyz $tag $val
+	}
+	lappend options(-slots) $xyz
+    }
+
+    # compute the adjacent set of the tile
+    method compute-adjacent {xyz} {
+	foreach {x y z} $xyz break
+	set dxs {}
+	foreach dx {-1 -0.5 0 0.5 1} {
+	    set xn [expr {$x+$dx}]
+	    foreach dy {-1 -0.5 0 0.5 1} {
+		set yn [expr {$y+$dy}]
+		if {($xn != $x || $yn != $y) && [$self exists-slot [list $xn $yn $z]]} {
+		    set xnynzn [list $xn $yn $z]
+		    $self add-adjacent $xyz $xnynzn
+		    if {abs($yn-$y) <= 0.5 && abs($xn-$x) == 1} {
+			$self add-x-adjacent $xyz $xnynzn
+			if {$xn-$x < 0} {
+			    $self add-left-adjacent $xyz $xnynzn
+			    lappend dxs -1
+			} else {
+			    $self add-right-adjacent $xyz $xnynzn
+			    lappend dxs 1
+			}
+		    }
+		}
+	    }
+	}
+	set np 0
+	set nm 0
+	foreach d $dxs {
+	    if {$d < 0} { incr nm }
+	    if {$d > 0} { incr np }
+	}
+	$self set $xyz endcap [expr {$np == 0 || $nm == 0}]
+    }
+    # find the z-shadow cast by this tile on the next layer
+    method compute-z-shadow {xyz} {
+	foreach {x y z} $xyz break
+	set shadow {}
+	if {$z > 0} {
+	    set x0 [expr {$x-0.5}]
+	    set x1 [expr {$x+0.5}]
+	    set y0 [expr {$y-0.5}]
+	    set y1 [expr {$y+0.5}]
+	    foreach slot [$self layer-slots [expr {$z-1}]] {
+		foreach {nx ny nz} $slot break
+		if {(min($x1,$nx+0.5)-max($x0,$nx-0.5)) > 0 
+		    && (min($y1,$ny+0.5)-max($y0,$ny-0.5)) > 0} {
+		    lappend shadow $slot
+		}
+	    }
+	}
+	$self set $xyz z-shadow $shadow
+    }
+    # compute the x-adjacent of this slot
+    method compute-x-adjacent {xyz} {
+	# already done when computing adjacents
+    }
+    # find the closure of the z-shadow 
+    method compute-z-shadow-closure {xyz} {
+	$self set $xyz z-closure [$self compute-relation-closure $xyz z-shadow]
+    }
+    method compute-x-adjacent-closure {xyz} {
+	$self set $xyz x-closure [$self compute-relation-closure $xyz x-adjacent]
+    }
+    method compute-relation-closure {xyz relation} {
+	array set closure {}
+	set level 1
+	set closure($xyz) $level
+	set found 1
+	while {$found} {
+	    set found 0
+	    incr level
+	    foreach slot [array names closure] {
+		if {$closure($slot) != $level-1} continue
+		foreach s [$self $relation $slot] {
+		    if { ! [info exists closure($s)]} {
+			incr found
+			set closure($s) $level
+		    }
+		}
+	    }
+	}
+	# unset closure($xyz)
+	return [lsort -real -index 0 [array names closure]]
+    }
+    
+    # return the adjacent slots
+    method adjacent {xyz} { return [$self get $xyz adjacent] }
+    # return the z-shadow of a slot
+    method z-shadow {xyz} { return [$self get $xyz z-shadow] }
+    # return the z-shadow closure of a slot
+    method z-closure {xyz} { return [$self get $xyz z-closure] }
+    # return the x-adjacent of a slot
+    method x-adjacent {xyz} { return [$self get $xyz x-adjacent] }
+    # return the x-adjacent closure of a slot
+    method x-closure {xyz} { return [$self get $xyz x-closure] }
+    # return the left x-adjacent
+    method left-adjacent {xyz} { return [$self get $xyz left-adjacent] }
+    method right-adjacent {xyz} { return [$self get $xyz right-adjacent] }
+
+    # return the block of the slot
+    method block {xyz} {
+	foreach {x y z} $xyz break
+	set block {}
+	set row [$self row $xyz]
+	lappend block {*}$row
+	for {set d -1} {$d <= 1} {incr d 2} {
+	    for {set t [expr {$y+$d}]} {[$self exists-slot [list $x $t $z]]} {set t [expr {$t+$d}]} {
+		lappend block {*}[lmap c $row {lreplace $c 1 1 $t}]
+	    }
+	}
+	return $block
+    }
+    # return the row of a slot
+    method row {xyz} { return [list $xyz {*}[$self left-row $xyz] {*}[$self right-row $xyz]] }
+    method left-row {xyz} { return [$self either-row $xyz -1] }
+    method right-row {xyz} { return [$self either-row $xyz +1] }
+    method either-row {xyz d} {
+	foreach {x y z} $xyz break
+	set row {}
+	for {set t [expr {$x+$d}]} {[$self exists-slot [list $t $y $z]]} {set t [expr {$t+$d}]} {
+	    lappend row [list $t $y $z]
+	}
+	return $row
+    }
+    # return the row closure of a slot
+    method row-closure {xyz} { return [list $xyz {*}[$self left-row-closure $xyz] {*}[$self right-row-closure $xyz]] }
+    method left-row-closure {xyz} { return [$self either-row-closure $xyz left] }
+    method right-row-closure {xyz} { return [$self either-row-closure $xyz right] }
+    method either-row-closure {xyz lr} {
+	#puts "either-row-closure $xyz $lr"
+	set closure {}
+	for {set new [$self $lr-adjacent $xyz]} {[llength $new] > 0} {set new $nnew} {
+	    #puts "loop new $new"
+	    set nnew {}
+	    foreach slot $new {
+		if {[lsearch $closure $slot] < 0} {
+		    lappend closure $slot
+		    lappend nnew {*}[$self $lr-adjacent $slot]
+		}
+	    }
+	}
+	return $closure
+    }
+    # return the adjacent right neighbors, right-adjacent
+    method old-right-adjacent {xyz} {
+	foreach {x y z} $xyz break
+	set all {}
+	foreach n [$self x-adjacent $xyz] {
+	    foreach {xn yn zn} $n break
+	    if {$xn > $x} { lappend all $n }
+	}
+	return $all
+    }
+    method old-left-adjacent {xyz} {
+	foreach {x y z} $xyz break
+	set all {}
+	foreach n [$self x-adjacent $xyz] {
+	    foreach {xn yn zn} $n break
+	    if {$xn < $x} { lappend all $n }
+	}
+	return $all
+    }
+    # number of empty slots, all filled, or all empty
+    method number-empty {slots} { return [tcl::mathop::+ {*}[lmap s $slots {$self is-empty $s}]] }
+    method all-filled {slots} {	return [expr {[$self number-empty $slots] == 0}] }
+    method all-empty {slots} { return [expr  {[$self number-empty $slots] == [llength $slots]}] }
+    method any-filled {slots} { return [expr {[$self number-empty $slots] < [llength $slots]}] }
+    # well known slot sets all filled or all empty
+    method any-filled-x-adjacent {xyz} { return [$self any-filled [$self x-adjacent $xyz]] } 
+    method all-filled-left-adjacent {xyz} { return [$self all-filled [$self left-adjacent $xyz]] }
+    method all-filled-right-adjacent {xyz}  { return [$self all-filled [$self right-adjacent $xyz]] }
+    method all-empty-left-adjacent {xyz} { return [$self all-empty [$self left-adjacent $xyz]] }
+    method all-empty-right-adjacent {xyz}  { return [$self all-empty [$self right-adjacent $xyz]] }
+    # can a slot be played
+    method can-play {slot} {
+	# cannot play an empty slot
+	if {[$self is-empty $slot]} { return 0 }
+	# cannot play if covered in z
+	if {[$self is-covered-in-z $slot]} { return 0 }
+	# cannot play if covered in x
+	if {[$self is-covered-in-x $slot]} { return 0 }
+	return 1
+    }
+    method is-covered-in-z {slot} {
+	foreach {x y z} $slot break
+	foreach s [$self layer-slots [expr {$z+1}]] {
+	    if { ! [$self is-empty $s]} {
+		if {$slot in [$self z-shadow $s]} {
+		    return 1
+		}
+	    }
+	}
+	return 0
+    }
+    method is-covered-in-x {slot} {
+	if {[$self is-endcap $slot]} { return 0 }
+	if {[$self all-empty-left-adjacent $slot]} { return 0 }
+	if {[$self all-empty-right-adjacent $slot]} { return 0 }
+	return 1
+    }
+    # can a slot be unplayed
+    method can-unplay {slot {donotblock {}}} {
+	# cannot unplay a filled slot
+	if { ! [$self is-empty $slot]} { return 0 }
+	# cannot unplay a slot over an empty slot in z
+	if {[$self covers-empty-in-z $slot]} { return 0 }
+	# cannot unplay a slot over an empty slot in x
+	if {[$self covers-empty-in-x $slot]} { return 0 }
+	# if donotblock is present, do not play next to or over it
+	if {$donotblock ne {}} {
+	    # this is the last bug in the game generator, if you
+	    # choose the two slots to unplay independently, then
+	    # the second can block the first, to be a legal unplay
+	    # you have to be able to play the slots in either order
+	    if {[$self blocks-in $slot $donotblock]} { return 0 }
+	}
+	# that was the last bug, but there is another. it is possible to
+	# unplay legal moves to a deadlock. so I need to look ahead to
+	# choose the best unplayable, or somehow finesse the problem
+	return 1;
+    }
+    # does slot $sl1 block in slot $sl2
+    method blocks-in {sl1 sl2} {
+	# sl1 is on top of sl2 and blocks it in
+	if {$sl2 in [$self z-shadow $sl1]} {
+	    return 1
+	}
+	# sl1 is not next to sl2
+	if {$sl2 ni [$self x-adjacent $sl1]} {
+	    return 0
+	}
+	# sl2 is free on the other side
+	if {[$self is-endcap $sl2]} {
+	    return 0
+	}
+	# sl1 is to the left of sl2
+	if {$sl1 in [$self left-adjacent $sl2]} {
+	    # and there is nothing to the right
+	    return [expr { ! [$self all-empty-right-adjacent $sl2]}]
+	}
+	# sl1 is to the right of sl2
+	# and there is nothing to the left
+	return [expr { ! [$self all-empty-left-adjacent $sl2]}]
+    }
+    #
+    method covers-empty-in-z {slot} {
+	return [tcl::mathop::+ {*}[lmap s [$self z-shadow $slot] {$self is-empty $s}]]
+    }
+    #
+    method covers-empty-in-x {slot} {
+	# Each x-adjacent-closure shall start in one compartment
+	# there are ways that multiple seeds could start in 
+	# different rows in the compartment and grow together
+	# but the growth cannot cross a boundary between different 
+	# numbers of rows except when the crossing into row(s) is(are)
+	# completely covered by the crossing out of row(s)
+	set x [$self x-closure $slot]
+	set n [llength $x]
+	set ne [tcl::mathop::+ {*}[lmap s $x {$self is-empty $s}]]
+	# entirely empty, any slot will do
+	if {$ne == $n} { return 0 }
+	# one slot left, it will do
+	if {$ne == 1} { return 0 }
+	# if it is an endcap slot
+	if {[$self is-endcap $slot]} {
+	    # all neighbors filled, it will do else wait until they're filled
+	    if {[$self all-filled [$self x-adjacent $slot]]} { return 0 } else { return 1 }
+	}
+	# this block is empty, but the closure is not empty
+	if {[$self all-empty [$self block $slot]]} {
+	    # if all our neighbors to one side are filled, then okay, else not
+	    if {[$self all-filled-left-adjacent $slot] || [$self all-filled-right-adjacent $slot]} {
+		return 0 } else { return 1 }
+	}
+	# this block is not empty
+	# this row, and its extensions into adjoining blocks are all empty
+	# this is the key, isn't it?
+	if {[$self all-empty [$self row-closure $slot]]} {
+	    # if we are in a block that contains filled slots
+	    # but a row that is empty, then any slot in the row
+	    # is acceptable, but only if the rows connected to this
+	    # row in the closure are empty, too.
+	    return 0
+	} else {
+	    # if we are in a row closure that contains filled slots
+	    # then if we are adjacent to a filled slot, okay,
+	    # else not okay
+	    if {[$self all-filled-left-adjacent $slot]} {
+		return 0
+	    } elseif {[$self all-filled-right-adjacent $slot]} {
+		return 0
+	    } 
+	    #elseif {[$self any-filled-x-adjacent $slot]} { 
+		# okay, maybe if we're partially filledpp
+	        #return 0
+	    #}
+	    return 1
+	}
+	error "failed to classify case"
+    }
+}
+
+#
+# I currently render the tiles svg file into a png using inkscape. The svg renders into
+# an image with two rows of 44 tiles each.  The top row contains the unselected images 
+# and the bottom row the selected images.  The list initializing the -tiles option below
+# gives the names of the tiles.
+#
+# This set of tile images includes a spare white dragon, one drawn with Ubuntu branding 
+# and the other rendering as a blank white tile.  A complete game set includes four of 
+# each tile except for the seasons and flowers bonus tiles, which are each a set of four
+# as they come.
+#
+# The mahjong::tiles type runs inkscape to create an appropriately sized image and then
+# splits the tile images out of the resulting png.  It would be better to generate the
+# images without the use of inkscape.  A full set of game tile names are defined and the
+# appropriate tile images are associated with each tile name.
+#
+snit::type mahjong::tiles {
+    option -svg -readonly true
+    option -png -readonly true
+    option -width -readonly true
+    option -height -readonly true
+    option -image -readonly true
+    option -keep -default 1 -readonly true
+    option -tiles -readonly true -default {
+	stone-1 stone-2 stone-3 stone-4 stone-5 stone-6 stone-7 stone-8 stone-9
+	north   west    south   east    red     green
+	number-1 number-2 number-3 number-4 number-5 number-6 number-7 number-8 number-9
+	bamboo-1 bamboo-2 bamboo-3 bamboo-4 bamboo-5 bamboo-6 bamboo-7 bamboo-8 bamboo-9
+	season-1 season-2 season-3 season-4 {}       flower-1 flower-2 flower-3 flower-4
+	white
+    }
+    option -normal -readonly true
+    option -select -readonly true
+
+    variable map [dict create]
+
+    constructor {args} {
+	$self configure {*}$args
+
+	# -e $png == export to png file $png
+	# -D == export drawing
+	# -d $dpi == export at $dpi dots per inch (but better overridden by -w $width)
+	# -w $width == export at width of $width pixels
+	# -y 0.0 == export with background set to transparent
+	set n [llength $options(-tiles)]
+	set twid $options(-width)
+	set thgt [expr {$twid*11/8}]
+	set options(-height) $thgt
+
+	if { ! [file exists $options(-png)]} {
+	    exec inkscape -e $options(-png) -D -w [expr {$n*$twid}] -y 0.0 $options(-svg)
+	}
+
+	set options(-image) [image create photo -file $options(-png)]
+	if { ! $options(-keep)} { exec rm $png }
+	set img $options(-image)
+	set options(-normal) {}
+	set options(-select) {}
+	for {set i 0} {$i < $n} {incr i} {
+	    set name [lindex $options(-tiles) $i]
+	    if {$name ne {}} {
+		switch -glob $name {
+		    season-* - flower-* { set card 1 }
+		    default { set card 4 }
+		}
+		set x1 [expr {$i*$twid}]
+		set x2 [expr {$x1+$twid}]
+		set y1 0
+		set y2 [expr {$y1+$thgt}]
+		set y3 [expr {$y2+$thgt}]
+		set nor [image create photo]
+		$nor copy $img -from $x1 $y1 $x2 $y2
+		set sel [image create photo]
+		$sel copy $img -from $x1 $y2 $x2 $y3
+		for {set j 1} {$j <= $card} {incr j} {
+		    set tname "$name#$j"
+		    dict set map $tname name $name
+		    dict set map $tname normal $nor
+		    dict set map $tname select $sel
+		    if {$card == 4} {
+			dict set map $tname match $name
+		    } else {
+			dict set map $tname match [string range $name 0 end-2]
+		    }
+		}
+	    }
+	}
+    }
+    # tiles returns a complete tile set, list of name#instance
+    method get-tiles {} { return [dict keys $map] }
+    # normal returns the normal image for a tile
+    method normal {name} { return [dict get $map $name normal] } 
+    # select returns the selected image for a tile
+    method select {name} { return [dict get $map $name select] } 
+    # match tests if the first tile matches the second tile
+    method match {name1 name2} { return [expr {[dict get $map $name1 match] eq [dict get $map $name2 match]}] }
+}
+
+snit::widgetadaptor mahjong::canvas {
+    option -layout -readonly true
+    option -tiles -readonly true
+    option -items -readonly true
+    option -shuffled-items -readonly true
+    option -shuffled-slots -readonly true
+    option -invert-offsets -readonly true
+    option -trace false
+    option -title mahjong
+    option -game -default 0
+    option -start-timer 0
+    option -remaining-moves 0
+    option -remaining-tiles 0
+    
+    component layout
+    component tiles
+
+    delegate option -width to tiles
+    delegate option -height to tiles
+
+    delegate method get-tiles to tiles
+    delegate method match to tiles
+
+    delegate method set-slot to layout
+    delegate method set-empty to layout
+    delegate method get-slot to layout
+    delegate method get-slots to layout
+    delegate method is-empty to layout
+    delegate method is-adjacent to layout
+    delegate method is-endcap to layout
+    delegate method z-shadow to layout
+    delegate method z-closure to layout
+    delegate method x-adjacent to layout
+    delegate method x-closure to layout
+    delegate method adjacent to layout
+    delegate method can-unplay to layout
+    delegate method can-play to layout
+    
+    delegate option * to hull
+    delegate method * to hull
+    
+    variable data [dict create]
+    
+    constructor {args} {
+	installhull using ::canvas
+	bind $win <Configure> [list {*}[mymethod resize] %W %w %h]
+	bind $win <Button-3> [list {*}[mymethod menu-popup] %W %x %y]
+	$self menu-build
+	$self configure {*}$args
+
+	set layout $options(-layout)
+	set tiles $options(-tiles)
+
+	set twid [$self cget -width]
+	set thgt [$self cget -height]
+
+	foreach name [$self get-tiles] {
+	    set it [$win create image 0 0 -anchor nw]
+	    dict set data name-to-item $name $it
+	    dict set data item-to-name $it $name
+	    dict set data selected-slot {}
+	    dict set data selected-item {}
+	    dict set data selected-name {}
+	    $win itemconfigure $it -image [$self normal-image $it]
+	    # puts "$it is $name $i"
+	    lappend options(-items) $it
+	}
+	$self history-init
+
+	$self new-game
+    }
+    
+    method name-to-item {name} { return [dict get $data name-to-item $name] }
+    method item-to-name {item} { return [dict get $data item-to-name $item] }
+
+    method normal-image {item} { return [$tiles normal [$self item-to-name $item]] }
+    method select-image {item} { return [$tiles select [$self item-to-name $item]] }
+
+    # context menu, button 3 or 2 on the background
+    method menu-build {} {
+	# popup menu
+	menu .m -tearoff no
+	.m add command -label {New Game} -command [list {*}[mymethod new-game]]
+	.m add command -label {Restart} -command [list {*}[mymethod restart-game]]
+	.m add separator
+	.m add command -label {Pause} -command [list {*}[mymethod pause-game]]
+	.m add command -label {Continue} -command [list {*}[mymethod continue-game]]
+	.m add separator
+	.m add command -label {Hint} -command [list {*}[mymethod hint]]
+	.m add command -label {Undo} -command [list {*}[mymethod undo]]
+	.m add command -label {Redo} -command [list {*}[mymethod redo]]
+	.m add separator
+	.m add command -label {Scores} -command [list {*}[mymethod scores]]
+	.m add command -label {Preferences} -command [list {*}[mymethod preferences]]
+	.m add command -label {Help} -command [list {*}[mymethod help]]
+	.m add separator
+	.m add checkbutton -label {Trace} -variable [myvar options(-trace)]
+	.m add separator
+	.m add command -label {Quit} -command [list destroy .]
+	# keyboard accelerators
+	foreach {key meth} {
+	    n new-game
+	    o restart-game
+	    p pause-game
+	    c continue-game
+	    h hint
+	    u undo
+	    r redo
+	    s scores
+	    p preferences
+	    q quit
+	} {
+	    bind . <$key> [list {*}[mymethod $meth]]
+	}
+    }
+    method menu-enable-disable {enable disable} {
+	foreach label $enable { .m entryconfigure $label -state normal }
+	foreach label $disable { .m entryconfigure $label -state disabled }
+    }
+    method menu-popup {w x y} {
+	if {[$win find withtag current] eq {}}  { tk_popup .m $x $y }
+    }
+
+    method new-game {} {
+	set options(-game) [clock seconds]
+	$self setup
+	$self restart
+    }
+
+    method restart-game {} {
+	$self restart
+    }
+
+    method pause-game {} {
+	# set the flag
+	dict set data paused true
+	# blank all the tiles
+	foreach item [$self get-items] { $win itemconfigure $item -image [$self normal-image [$self name-to-item white#1]] }
+	# turn off all inputs
+	# except continue and quit
+	$self menu-enable-disable {{Continue}} {{New Game} {Restart} {Pause} {Hint} {Undo} {Redo} {Scores} {Preferences} {Help}}
+	# turn off selection?
+    }
+    method continue-game {} {
+	# reenable inputs
+	$self menu-enable-disable {{New Game} {Restart} {Pause} {Hint} {Undo} {Redo} {Scores} {Preferences}} {{Continue}}
+	# unblank all tiles
+	foreach item  [$self get-items] { $win itemconfigure $item -image [$self normal-image $item] }
+	# clear the paused flag
+	dict set data paused false
+    }
+    method hint {} {}
+    method undo {} { $self history-undo }
+    method redo {} { $self history-redo }
+    method scores {} {}
+    method preferences {} {}
+    method quit {} { destroy . }
+    
+    #
+    # game play
+    #
+    method get-items {} { return $options(-items) }
+
+    method setup {} {
+	# arrange to be able to restart a game
+	# so, game number seeds random number
+	# generator, results in shuffle of -slots
+	# and -tiles
+	expr {srand($options(-game))}
+	# puts "$options(-game) [$self format-game $options(-game)] [$self scan-game [$self format-game $options(-game)]]"
+	wm title . "mahjong - [$self format-game $options(-game)]"
+	set options(-shuffled-slots) [$self shuffle [$self get-slots]]
+	set options(-shuffled-items) [$self shuffle [$self get-items]]
+	$self start-status
+    }
+
+    method start-status {} {
+	if { ! [dict exists $data status-started]} {
+	    dict set data status-started [after 100 [list {*}[mymethod update-status]]]
+	}
+    }
+	
+    method update-status {} {
+	set gname [$self format-game $options(-game)]
+	if {$options(-start-timer) == 0} {
+	    set elapsed 0
+	} else {
+	    set elapsed [expr {[clock seconds] - $options(-start-timer)}]
+	}
+	set elapsed [format {%d:%02d} [expr {$elapsed/60}] [expr {$elapsed%60}]]
+	wm title . "$options(-title) - $gname - $elapsed - $options(-remaining-moves) moves, $options(-remaining-tiles) tiles"
+	dict set data status-started [after 100 [list {*}[mymethod update-status]]]
+    }
+
+    method start-timer {} {
+	if {$options(-start-timer) == 0} { set options(-start-timer) [clock seconds] }
+    }
+
+    method update-score {} {
+	set options(-remaining-moves) [$self count-moves]
+    }
+
+    method count-moves {} {
+	return {?}
+    }
+
+    method format-game {game} {
+	while {$game != 0} {
+	    set c [expr {$game%26}]
+	    set game [expr {$game/26}]
+	    lappend format [lindex {a b c d e f g h i j k l m n o p q r s t u v w x y z} $c]
+	}
+	return [join [lreverse $format] {}]
+    }
+    
+    method scan-game {game} {
+	set n 0
+	foreach c [split $game {}] {
+	    set n [expr {$n*26+[lsearch {a b c d e f g h i j k l m n o p q r s t u v w x y z} $c]}]
+	}
+	return $n
+    }
+
+    ##
+    ## history maintenance
+    ##
+    method history-init {} {
+	dict set data history [dict create count 0 future 0 items {}]
+    }
+
+    method history-empty {} {
+	dict with data history {
+	    set count 0
+	    set future 0
+	    set items {}
+	    $self menu-enable-disable {} {Undo Redo}
+	}
+    }
+    method history-add {args} {
+	dict with data history {
+	    if {[llength $items] > $count} {
+		set items [lrange $items 0 $count]
+	    }
+	    lappend items $args
+	    incr count 1
+	    set future $count
+	    $self menu-enable-disable {Undo} {Redo}
+	}
+    }
+    method history-undo {} {
+	# step back
+	# turn off selection?
+	dict with data history {
+	    set future $count
+	    incr count -1
+	    $self move-undo {*}[lindex $items $count]
+	    if {$count > 0} {
+		$self menu-enable-disable {Undo Redo} {}
+	    } else {
+		$self menu-enable-disable {Redo} {Undo}
+	    }
+	}
+    }
+    method history-redo {} {
+	# step forward
+	dict with data history {
+	    $self move-redo {*}[lindex $items $count]
+	    incr count 1
+	    if {$count < $future} {
+		$self menu-enable-disable {Undo Redo} {}
+	    } else {
+		$self menu-enable-disable {Undo} {Redo}
+	    }
+	}
+    }
+
+    ##
+    ## these change whether we're unplaying or playing
+    ##
+    method move-undo {item1 slot1 item2 slot2} {
+	#puts "move-undo $item1 $slot1 $item2 $slot2"
+	$win itemconfigure $item1 -image [$self normal-image $item1]
+	$win itemconfigure $item2 -image [$self normal-image $item1]
+	set twid $options(-width)
+	set thgt $options(-height)
+	$self place-tile $slot1 $item1 $twid $thgt
+	$self place-tile $slot2 $item2 $twid $thgt
+    }
+    method move-redo {item1 slot1 item2 slot2} {
+	#puts "move-redo $item1 $slot1 $item2 $slot2"
+	$win itemconfigure $item1 -image {}
+	$win coords $item1 0 0
+	$self set-empty $slot1
+	$win itemconfigure $item2 -image {}
+	$win coords $item2 0 0
+	$self set-empty $slot2
+    }
+
+    method shuffle {oldlist} {
+	set n [llength $oldlist]
+	set list $oldlist
+	for {set i 0} {$i < $n} {incr i} {
+	    set j [expr {$i+int(rand() * ($n-$i))}]
+	    set li [lindex $list $i]
+	    set lj [lindex $list $j]
+	    set list [lreplace [lreplace $list $j $j $li] $i $i $lj]
+	}
+	return $list
+    }
+
+    method restart {} {
+	# empty slots, reset images, clear selection, empty history
+	foreach slot [$self get-slots] { $self set-empty $slot }
+	foreach item $options(-items) { $win itemconfigure $item -image [$self normal-image $item] }
+	$self set-selected {} {} {}
+	$self history-empty
+
+	# pick matching pairs from available
+	set items $options(-shuffled-items)
+	set slots $options(-shuffled-slots)
+	set twid [$self cget -width]
+	set thgt [$self cget -height]
+	set made {}
+
+	if {$options(-trace)} {
+
+	    # stack unplaced tiles to the side
+	    # order them so the next to be played is revealed
+	    foreach item $options(-shuffled-items) {
+		$win coords $item [expr {11*$twid}] 0
+		$win lower $item
+	    }
+	    # redraw the layer frame
+	    catch {$win delete frame}
+	    foreach slot [$self get-slots] {
+		foreach {x y z} $slot break
+		if {$z != 0} continue
+		set x [expr {$x*$twid*0.9}]
+		set y [expr {$y*$thgt*0.9}]
+		$win create rect $x $y [expr {$x+$twid*0.9}] [expr {$y+$thgt*0.9}] -outline white -fill {} -tags frame
+	    }
+
+	    # set up the dialog
+	    update idletasks
+	    if {[tk_dialog .d {} {} {} 0 okay skip]} { set options(-trace) 0; catch {$win delete frame} }
+	    
+	}
+	
+	set nitems [llength $items]
+	
+	if {[catch {
+	    while {[llength $items]} {
+		set options(-remaining-tiles) [expr {$nitems-[llength $items]}]
+		if {[llength $items] <= 64} {
+		    #puts "last [llength $items] unplay-able [lmap s $slots {$self can-unplay $s {}}]"
+		}    
+
+		## choose the pair of matched items to play
+		# take first item in item list
+		set i1 0
+		set it1 [lindex $items $i1]
+		set items [lreplace $items $i1 $i1]
+		# take first matching item in item list
+		set i2 [$self find-match-index $it1 $items]
+		set it2 [lindex $items $i2]
+		set items [lreplace $items $i2 $i2]
+
+		## find the unplayable slots in the slot list
+		## this didn't work out very well
+		if {0} {
+		    set stage [expr {[llength $slots]/2}]
+		    set avail [lmap s $slots {$self can-unplay $s}]
+		    set navail [tcl::mathop::+ {*}$avail]
+		    puts "$stage: $navail: $avail"
+		    if {$navail < 10} {
+			foreach sl1 $slots can $avail {
+			    if {$can} {
+				set c [$self x-closure $sl1]
+				set nc [llength $c]
+				set nce [tcl::mathop::+ {*}[lmap s $c {$self is-empty $s}]]
+				puts "at $stage: {$sl1} $nc $nce"
+			    }
+			}
+		    }
+		}
+
+		# take first open slot in slot list
+		set sl1 [$self find-can-unplay $slots]
+		set s1 [lsearch $slots $sl1]
+		set slots [lreplace $slots $s1 $s1]
+		lappend made $sl1
+
+		## play the first open slot so the second choice sees it
+		# put the item in its slot
+		$self place-tile $sl1 $it1 $twid $thgt
+
+		## this needs to reject slots which block the first one played
+		# take next open slot in slot list
+		set sl2 [$self find-can-unplay $slots $sl1]
+		set s2 [lsearch $slots $sl2]
+		set slots [lreplace $slots $s2 $s2]
+		lappend made $sl2
+
+		# put the item in its slot
+		$self place-tile $sl2 $it2 $twid $thgt
+
+		if {$options(-trace)} { 
+		    # raise drawn slots in render order
+		    foreach xyz [$self get-slots] {
+			if {$xyz in $made} {
+			    $win raise [$layout get $xyz slot]
+			}
+		    }
+		    # lower undrawn slots in order
+		    #foreach item $options(-shuffled-items) {
+			#$win lower $item
+		    #}
+		    
+		    update idletasks
+		    if {[tk_dialog .d {} {} {} 0 okay skip]} { set options(-trace) 0; catch {$win delete frame} }
+		} 
+		
+	    }
+	    puts "ungame completed successfully"
+	} error]} {
+	    puts $error\n$::errorInfo
+	}
+
+	set options(-remaining-tiles) [expr {$nitems-[llength $items]}]
+
+	# raise slots in render order
+	foreach xyz [$self get-slots] {
+	    $win raise [$layout get $xyz slot]
+	}
+
+	# adjust window
+	$win move all {*}[$self compute-center]
+
+	# compute
+	set options(-remaining-moves) [$self count-moves]
+    }
+    
+    method resize {w wid hgt} {
+	$win move all {*}[$self compute-center]
+    }
+    
+    # compute the xoff yoff that centers the current 
+    method compute-center {} {
+	foreach {x1 y1 x2 y2} [$win bbox all] break
+	set w [winfo width $win]
+	set h [winfo height $win]
+	set xoff [expr {(($w-($x2-$x1))/2) - $x1}]
+	set yoff [expr {(($h-($y2-$y1))/2) - $y1}]
+	return [list $xoff $yoff]
+    }
+    
+    method find-match-index {it1 items} {
+	set n1 [dict get $data item-to-name $it1]
+	set index 0
+	foreach it2 $items {
+	    if {[$self match $n1 [dict get $data item-to-name $it2]]} {
+		return $index
+	    }
+	    incr index
+	}
+	error "failed to find a matching tile to $n1"
+    }
+    
+    method find-can-unplay {slots {donotblock {}}} {
+	foreach slot $slots {
+	    if {[$self can-unplay $slot $donotblock]} { return $slot }
+	}
+	error "cannot unplay"
+    }
+    
+    method find-can-play {slots} {
+	foreach slot $slots {
+	    if {[$self can-play $slot]} { return $slot }
+	}
+	error "cannot play"
+    }
+    
+    method enter {it xyz} {
+	# puts "$self enter $it $xyz"
+	foreach b {1} {
+	    $win bind $it <Button-$b> [list {*}[mymethod button] $b $it $xyz %x %y]
+	}
+    }
+    
+    method leave {it xyz} {
+	# puts "$self leave $it $xyz"
+	foreach b {1 2 3} {
+	    $win bind $it <Button-$b> {}
+	}
+    }
+    
+    method get-selected {} {
+	set selected {}
+	foreach tag {item slot name} {
+	    lappend selected [dict get $data selected-$tag]
+	    dict set data selected-$tag {}
+	}
+	return $selected
+    }
+    method set-selected {args} {
+	foreach tag {item slot name} arg $args {
+	    dict set data selected-$tag $arg
+	}
+    }
+    
+    method button {b it xyz x y} {
+	if {$b == 1} {
+	    # tile select $it $xyz
+	    # if the tile is playable
+	    if {[$self can-play $xyz]} {
+		set name [$self item-to-name $it]
+		# if there's an already selected tile
+		if {[dict get $data selected-item] ne {}} {
+		    # get the selected tile and clear the selection
+		    foreach {it1 xyz1 name1} [$self get-selected] break
+		    $win itemconfigure $it1 -image [$self normal-image $it1]
+		    # if it's the same tile
+		    if {$it == $it1} {
+			# just return, we've cancelled the selection
+			# and undone the selected image
+			return;
+		    }
+		    # if it's a match to the previously selected tile
+		    if {[$self match $name $name1]} {
+			# start counting time
+			$self start-timer
+			# remove the tiles from play
+			$self move-redo $it $xyz $it1 $xyz1
+			# keep history
+			$self history-add $it $xyz $it1 $xyz1
+			# keep score
+			incr options(-remaining-tiles) -2
+			after 0 [list {*}[mymethod update-score]]
+			return
+		    }
+		    # select the new tile in place of the old one
+		    $win itemconfigure $it -image [$self select-image $it]
+		    $self set-selected $it $xyz $name
+		} else {
+		    # select the new tile
+		    $win itemconfigure $it -image [$self select-image $it]
+		    $self set-selected $it $xyz $name
+		}
+	    }
+	}
+    }
+
+    method place-tile {xyz it twid thgt} {
+	dict set data item-to-slot $it $xyz
+	set xstep [expr {$twid/10}]
+	set ystep [expr {$thgt/10}]
+	set twid [expr {$twid-$xstep}]
+	set thgt [expr {$thgt-$ystep}]
+	$layout set $xyz slot $it
+	foreach {x y z} $xyz break
+	set x [expr {$x*$twid + $z*$xstep}]
+	set y [expr {$y*$thgt - $z*$ystep}]
+	$win coords $it $x $y
+	# $win itemconfigure $it -tags [concat [$win itemcget $it -tags] z$z]
+	$win bind $it <Enter> [list {*}[mymethod enter] $it $xyz]
+	$win bind $it <Leave> [list {*}[mymethod leave] $it $xyz]
+    }
+    
+}
+
+#
+# create the layout for the "difficult" map
+# tiles, rows, blocks, layers
+# each layer of z is offset partially in x and y 
+# to make the tiles stack
+# layout is 7 tiles tall in y, plus a bit for the z offset,
+# and 11 tiles wide in x, add a tile for margins, so
+# take minimum of (width / 12) and ((height / 8) / 1.375)
+# (taking aspect h/w = 1.375)
+# to decide how large to make the tiles
+#
+# furthermore, the tiles, rows, and blocks in each layer
+# are laid out in render order
+#
+set mymap {
+    {
+	layer z 0 parts {
+	    {tile x 10 y 3}
+	    {block left 8.5 right 9.5 top 0.5 bottom 1.5}
+	    {block left 8.0 right 9.0 top 2.5 bottom 3.5}
+	    {block left 8.5 right 9.5 top 4.5 bottom 5.5}
+	    {row y 0 left 3 right 7}
+	    {row y 1 left 2.5 right 7.5}
+	    {block left 3.0 right 7.0 top 2.0 bottom 4.0}
+	    {row y 5 left 2.5 right 7.5}
+	    {row y 6 left 3 right 7}
+	    {block left 0.5 right 1.5 top 0.5 bottom 1.5}
+	    {block left 1.0 right 2.0 top 2.5 bottom 3.5}
+	    {block left 0.5 right 1.5 top 4.5 bottom 5.5}
+	    {tile x 0 y 3}
+	}
+    }
+    {
+	layer z 1 parts {
+	    {tile x 6.5 y 0}
+	    {row left 7 right 9 y 1}
+	    {block left 7.5 top 2 right 8.5 bottom 4}
+	    {row left 7 right 9 y 5}
+	    {tile x 6.5 y 6}
+	    {row y 0.5 left 4.5 right 5.5}
+	    {row y 1.5 left 4 right 6}
+	    {block top 2.5 left 3.5 bottom 3.5 right 6.5}
+	    {row y 4.5 left 4 right 6}
+	    {row y 5.5 left 4.5 right 5.5}
+	    {tile x 3.5 y 0}
+	    {row left 1 right 3 y 1}
+	    {block left 1.5 top 2 right 2.5 bottom 4}
+	    {row left 1 right 3 y 5}
+	    {tile x 3.5 y 6}
+	} 
+    }
+    {
+	layer z 2 parts {
+	    {row y 2 left 2.5 right 7.5}
+	    {row y 3 left 2 right 8}
+	    {row y 4 left 2.5 right 7.5}
+	}
+    }
+    {
+	layer z 3 parts {
+	    {tile x 7.5 y 3}
+	    {block left 3.5 right 6.5 top 2.5 bottom 3.5}
+	    {tile x 2.5 y 3}
+	}
+    }
+    {row z 4 left 4 right 6 y 3}
+    {row z 5 left 4.5 right 5.5 y 3}
+    {tile z 6 x 5 y 3}
+}
+
+# create the layout
+mahjong::layout ::layout -map $mymap
+
+# create the tile images for the game
+mahjong::tiles ::tiles -svg postmodern.svg -png postmodern-100.png -width 100
+
+# creat the game window
+pack [mahjong::canvas .c -background \#323657 -layout ::layout -tiles ::tiles] -fill both -expand true
+

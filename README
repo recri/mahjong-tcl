@@ -1,0 +1,3 @@
+This is an implementation of Mahjong solitaire in Tcl/Tk/Snit, because
+I wanted to change it and this was a lot easier and faster than
+learning how to use the gnome games framework.

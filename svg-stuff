@@ -1,0 +1,129 @@
+#
+# path d
+# m or M = move relative or absolute
+# l or L = line relative or absolute
+# c or C = cubic bezier relative or absolute
+# q or Q = quartic bezier relative or absolute
+# t or T = continue quartic bezier rel or abs
+# s or S = continue cubic bezier rel or abs
+# z or Z = terminate path
+# numbers with optional spaces and commas
+#
+
+proc read-file {file} {
+    if {[catch {open $file r} fp]} {
+	error $fp
+    }
+    if {[catch {string trim [read $fp]} data]} {
+	close $fp
+	error $data
+    }
+    close $fp
+    return $data
+}
+
+proc xml2list xml {
+    regsub -all {>\s*<} [string trim $xml " \n\t<>"] "\} \{" xml
+    set xml [string map {> "\} \{#text \{" < "\}\} \{"}  $xml]
+
+    set res ""   ;# string to collect the result   
+    set stack {} ;# track open tags
+    set rest {}
+    foreach item "{$xml}" {
+        switch -regexp -- $item {
+            ^# {append res "{[lrange $item 0 end]} " ; #text item
+	    }
+	    ^/ {
+                regexp {/(.+)} $item -> tagname ;# end tag
+                set expected [lindex $stack end]
+                if {$tagname!=$expected} {error "$item != $expected"}
+                set stack [lrange $stack 0 end-1]
+                append res "\}\} "
+	    }
+            /$ { # singleton - start and end in one <> group
+                regexp {([^ ]+)( (.+))?/$} $item -> tagname - rest
+                set rest [lrange [string map {= " "} $rest] 0 end]
+                append res "{$tagname [list $rest] {}} "
+            }
+            default {
+                set tagname [lindex $item 0] ;# start tag
+                set rest [lrange [string map {= " "} $item] 1 end]
+                lappend stack $tagname
+                append res "\{$tagname [list $rest] \{"
+            }
+        }
+        if {[llength $rest]%2} {error "att's not paired: $rest"}
+    }
+    if [llength $stack] {error "unresolved: $stack"}
+    string map {"\} \}" "\}\}"} [lindex $res 0]
+}
+
+proc interpret-path {d} {
+    array set counts {}
+    set i 0
+    set n [string length $d]
+    while {$i < $n} {
+	set c [string index $d $i]
+	switch $c {
+	    c - C -
+	    h - H -
+	    l - L -
+	    m - M -
+	    q - Q -
+	    s - S -
+	    t - T -
+	    v - V -
+	    z - Z { incr counts($c) }
+	    0 - 1 - 2 - 3 - 4 -
+	    5 - 6 - 7 - 8 - 9 -
+	    . - - - , - { } { }
+	    default {
+		error "unexpected character {$c} in path.d"
+	    }
+	}
+	incr i
+    }
+    return [array get counts]
+}
+
+proc traverse {indent doc} {
+    foreach {tag attr body} $doc {
+	if {[catch {array set a $attr} error]} {
+	    puts stderr $error\n$attr
+	    array set a {}
+	}
+	puts stdout "$indent $tag [array names a]"
+	switch $tag {
+	    svg {}
+	    metadata {}
+	    rdf:RDF {}
+	    cc:Work {}
+	    dc:format {}
+	    \#text {}
+	    dc:type {}
+	    defs {}
+	    g {}
+	    path {
+		puts stderr "path d [interpret-path $a(d)]"
+	    }
+	    polygon {}
+	    line {}
+	    rect {}
+	    circle {}
+	    ellipse {}
+	    use {}
+	    default {
+		puts stderr "missing tag $tag"
+	    }
+	}
+	foreach item $body {
+	    traverse "$indent " $item
+	}
+    }
+}
+
+set xmlSrc [read-file postmodern.svg]
+set tiles [xml2list $xmlSrc]
+
+traverse {} $tiles
+

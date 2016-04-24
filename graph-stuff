@@ -1,0 +1,46 @@
+	switch [llength $a] {
+	    2 {
+	    }
+	    3 {
+	    }
+	if {[llength $a] == 1} 
+	
+	set graph [dict create]
+	foreach s [$self x-closure {*}$slot] {
+	    dict set graph $s [dict create \
+				   is-empty [expr {[$self is-empty $s] && $s ne $slot}] \
+				   is-endcap [$self is-endcap $s] \
+				   neighbors [$self x-shadow {*}$s] \
+				   visitors {} \
+				  ]
+	}
+	foreach s [dict keys $graph] {
+	    if {[dict get $graph $s is-endcap]} {
+		set graph [flood-empty-nodes-of-graph $graph $s $s]
+	    }
+	}
+	foreach s [dict keys $graph] {
+	    if {[dict get $graph $s is-empty]} {
+		if {[dict get $graph $s visitors] eq {}} {
+		    return 1
+		}
+	    }
+	}
+	return 0
+    proc flood-empty-nodes-of-graph {graph mark node} {
+	if { ! [dict get $graph $node is-empty]} {
+	    # not visitable
+	    return $graph
+	}
+	if {[lsearch [dict get $graph $node visitors] $mark] >= 0} {
+	    # already visited
+	    return $graph
+	}
+	# mark as visitor
+	dict set graph $node visitors [list {*}[dict get $graph $node visitors] $mark]
+	# flood neighbors
+	foreach nbr [dict get $graph $node neighbors] {
+	    set graph [flood-empty-nodes-of-graph $graph $mark $nbr]
+	}
+	return $graph
+    }
