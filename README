@@ -1,12 +1,17 @@
 This is an implementation of Mahjong solitaire in Tcl/Tk/Snit, because
 I play gnome-mahjongg all the time and I wanted to change it.  This was
-a lot easier and faster than learning how to use the gnome games 
+a lot easier and faster for me than learning how to use the gnome games 
 framework.
 
 Yet to do:
 
 [ ] Get the adaptive framing and sizing to work correctly.
-[ ] Scale down images for reduced window sizes.
-[ ] Make undo/redo work correctly.
+[ ] Scale images for window size.
+[x] Make undo/redo work correctly.
 [ ] Make undo/redo work on the game generation thread.
-[ ] Make count-moves work.
+[x] Make count-moves work.
+[ ] Make rows and blocks persistent data
+[ ] Make row closures persistent data
+[ ] Make the svg tile set work without inkscape
+[ ] Switch back to using xml layout descriptor
+[ ] Prune the unused methods
