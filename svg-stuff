@@ -548,17 +548,6 @@ set svg {<svg id="svg3455" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns
  </g>
 </svg>
 }
-#
-# path d
-# m or M = move relative or absolute
-# l or L = line relative or absolute
-# c or C = cubic bezier relative or absolute
-# q or Q = quartic bezier relative or absolute
-# t or T = continue quartic bezier rel or abs
-# s or S = continue cubic bezier rel or abs
-# z or Z = terminate path
-# numbers with optional spaces and commas
-#
 
 proc read-file {file} {
     if {[catch {open $file r} fp]} {
@@ -608,100 +597,529 @@ proc xml2list xml {
     string map {"\} \}" "\}\}"} [lindex $res 0]
 }
 
-proc interpret-path {d} {
-    array set counts {}
-    set i 0
-    set n [string length $d]
-    while {$i < $n} {
-	set c [string index $d $i]
-	switch $c {
-	    c - C -
-	    h - H -
-	    l - L -
-	    m - M -
-	    q - Q -
-	    s - S -
-	    t - T -
-	    v - V -
-	    z - Z { incr counts($c) }
-	    0 - 1 - 2 - 3 - 4 -
-	    5 - 6 - 7 - 8 - 9 -
-	    . - - - , - { } { }
-	    default {
-		error "unexpected character {$c} in path.d"
-	    }
+#
+# path d
+# m or M = move relative or absolute
+# l or L = line relative or absolute
+# c or C = cubic bezier relative or absolute
+# q or Q = quartic bezier relative or absolute
+# t or T = continue quartic bezier rel or abs
+# s or S = continue cubic bezier rel or abs
+# z or Z = terminate path
+# numbers with optional spaces and commas
+#
+namespace eval path {
+    namespace eval d {
+	proc checkargs {op mod} {
+	    upvar args args
+	    if {[llength $args] % $mod != 0} { puts "wrong number of extra args for $op" }
 	}
-	incr i
+	proc h {sx sy dx args} {
+	    set coords {}
+	    lappend coords [set sx [expr {$sx+$dx}]] $sy
+	    foreach dx $args {
+		lappend coords [set sx [expr {$sx+$dx}]] $sy
+	    }
+	    return [list $sx $sy $coords]
+	}
+	proc v {sx sy dy args} {
+	    set coords {}
+	    lappend coords $sx [set sy [expr {$sy+$dy}]]
+	    foreach dy $args {
+		lappend coords $sx [set sy [expr {$sy+$dy}]]
+	    }
+	    return [list $sx $sy $coords]
+	}
+	proc l {sx sy dx dy args} {
+	    checkargs l 2 
+	    set coords {}
+	    lappend coords [set sx [expr {$sx+$dx}]] [set sy [expr {$sy+$dy}]]
+	    foreach dx $args {
+		lappend coords [set sx [expr {$sx+$dx}]] [set sy [expr {$sy+$dy}]]
+	    }
+	    return [list $sx $sy $coords]
+	}
+	proc m {sx sy dx dy} { 
+	    return [list [expr {$sx+$dx}] [expr {$sy+$dy}] {}]
+	}
+	proc z {sx sy} {
+	    return [list $sx $sy {}]
+	}
+	proc c {sx sy dc1x dc1y dc2x dc2y dx dy args} {
+	    checkargs c 6
+	    ## okay, these d*x and d*y are all relative to the previous x and y
+	    ## tk::canvas line and polygon would use -smooth raw to do a cubic bezier
+	    ## and the coords go knot ctl ctl knot ctl ctl, 
+	    ## while the svg path c goes ctl ctl knot
+	    ## with the initial knot being the point before
+	    set coords {}
+	    lappend coords $sx $sy 
+	    lappend coords [expr {$sx+$dc1x}] [expr {$sy+$dc1y}]
+	    lappend coords [expr {$sx+$dc2x}] [expr {$sy+$dc2y}] 
+	    lappend coords [set sx [expr {$sx+$dx}]] [set sy [expr {$sy+$dy}]]
+	    foreach {dc1x dc1y dc2x dc2y dx dy} $args {
+		lappend coords [expr {$sx+$dc1x}] [expr {$sy+$dc1y}]
+		lappend coords [expr {$sx+$dc2x}] [expr {$sy+$dc2y}] 
+		lappend coords [set sx [expr {$sx+$dx}]] [set sy [expr {$sy+$dy}]]
+	    }
+	    return [list $sx $sy $coords]
+	}
+	proc s {sx sy dcx dcy dx dy args} {
+	    checkargs s 4 
+	    
+	}
     }
-    return [array get counts]
 }
 
-proc traverse {indent doc} {
-    foreach {tag attr body} $doc {
-	if {[catch {array set a $attr} error]} {
-	    puts stderr $error\n$attr
-	    array set a {}
-	}
-	if {[info exists a(id)]} {
-	    set id " id=\"$a(id)\""
-	    unset a(id)
+proc interpret-path {sx sy d} {
+    set n [string length $d]
+    set cmds {}
+    set op {}
+    set num {}
+    set nums {}
+    set x 0
+    set y 0
+    for {set i 0} {$i < $n} {incr i} {
+	set c [string index $d $i]
+	if {$c in {h H v V l L m M z Z c C q Q s S t T}} {
+	    if {$num ne {}} { lappend nums $num; set num {} }
+	    if {$op ne {}} { lappend cmds [list $op {*}$nums]; set nums {} }
+	    set op $c; set num {}; set nums {}
+	} elseif {$c eq {-}} { # negative sign, only as first character
+	    if {$num ne {}} { lappend nums $num; set num {} }
+	    append num $c
+	} elseif {$c in {0 1 2 3 4 5 6 7 8 9 .}} { # part of a number
+	    if { ! [string is double $num$c]} { lappend nums $num; set num {} }
+	    append num $c
+	} elseif {$c in {, { }}} { # comma or space, separator
+	    if {$num ne {}} { lappend nums $num }
+	    set num {}
 	} else {
-	    set id {}
+	    error "unexpected character {$c} in path.d"
 	}
-	if {[info exists a(xlink:href)]} {
-	    set href " xlink:href=\"$a(xlink:href)\""
-	    unset a(xlink:href)
+    }
+    if {$num ne {}} { lappend nums $num; set num {} }
+    if {$op ne {}} { lappend cmds [list $op {*}$nums]; set nums {} }
+
+    set results {}
+    foreach cmd $cmds {
+	set op path::d::[lindex $cmd 0]
+	set args [lrange $cmd 1 end]
+	set cmd [list $op $sx $sy {*}$args]
+	if {[catch {{*}$cmd} result]} {
+	    puts "evaluate: $cmd\n$result"
 	} else {
-	    set href {}
+	    foreach {sx sy coords} $result break
+	    lappend results [list [string index $op end] {*}$result]
 	}
-	puts stdout "$indent$tag$id$href [array names a]"
+    }
+    # puts "path d [join [lsort [array names sum]] {}]"
+    return $results
+}
+##
+## interpret transforms
+##
+# is a 3 element row vector
+proc is-vector {v} {
+    return [tcl::mathop::& [expr {[llength $v]==3}] {*}[lmap vi $v {string is double $vi}]]
+}
+# is a 3x3 matrix
+proc is-matrix {m} {
+    return [tcl::mathop::& [expr {[llength $m]==3}] {*}[lmap mi $m {is-vector $mi}]]
+}
+# matrix(a b c d e f) as a matrix
+proc abcdef-to-matrix {abcdef} {
+    if {[llength $abcdef] != 6} { error "bad abcdef: $abcdef" }
+    foreach {a b c d e f} $abcdef break
+    return [list [list $a $c $e] [list $b $d $f] {0 0 1}]
+}
+# scale(x y) as a matrix
+proc scale-to-abcdef {x {y {}}} {
+    if {$y eq {}} { set y $x }
+    return [list $x 0 0 $y 0 0]
+}
+# translate(x y) as a matrix
+proc translate-to-abcdef {x {y 0}} {
+    return [list 1 0 0 1 $x $y]
+}
+# vector dot product between vectors written as rows
+proc vector-dot {v1 v2} {
+    return [tcl::mathop::+ {*}[lmap x $v1 y $v2 {expr {$x*$y}}]]
+}
+# matrix transpose, only 3x3
+proc matrix-transpose {m} {
+    foreach {r1 r2 r3} $m break
+    return [lmap x1 $r1 x2 $r2 x3 $r3 {list $x1 $x2 $x3}]
+}
+# matrix times a matrix, each as a column of rows
+proc matrix-mul-matrix {m1 m2} {
+    if { ! [is-matrix $m1]} { error "bad matrix: $m1" }
+    if { ! [is-matrix $m2]} { error "bad matrix: $m2" }
+    return [ lmap m1i $m1 { lmap m2j [matrix-transpose $m2] {vector-dot $m1i $m2j} }]
+}
+# matrix times a column vector written as a row
+proc matrix-mul-vector {m v} {
+    return [ lmap mi $m {vector-dot $m1 $v} ]
+}
+# matrix as matrix(a b c d e f)
+proc matrix-to-abcdef {matrix} {
+    foreach {r1 r2 r3} $matrix break
+    foreach {a c e} $r1 break
+    foreach {b d f} $r2 break
+    foreach {g h i} $r3 break
+    if {$g != 0 || $h != 0 || $i != 1} { error "matrix has an unexpected third row {$matrix}" }
+    return [list $a $b $c $d $e $f]
+}
+# 
+proc interpret-transform {tag attrs matrix} {
+    # matrix(<a> <b> <c> <d> <e> <f>) -> [[a c e] [b d f] [0 0 1]]
+    #	[xp]   [a c e]   [xn]
+    #	[yp] = [b d f] * [yn]
+    #	[ 1]   [0 0 1]   [ 1]
+    # translate(<x> [<y>]) == matrix(1 0 0 1 x y) -> [[1 0 x][0 1 y][0 0 1]]
+    #	missing <y> then y == 0
+    # scale(<x> [<y>]) == matrix(x 0 0 y 0 0) -> [[x 0 0][0 y 0][0 0 1]]
+    #	missing <y> then y == x
+    # rotate(<a> [<x> <y>]) matrix(cos(a) sin(a) -sin(a) cos(a) 0 0)
+    # skewX(<a>) matrix(1 0 tan(a) 1 0 0)
+    # skewY(<a>) matrix(1 tan(a) 0 1 0 0)
+    #
+    # transform1 transform2 are combined by matrix-mul-matrix $transform1 $transform2 
+    # the current transformation matrix is the combination of all transforms defined 
+    # and it transforms coordinates in the current user coordinate frame into coordinates
+    # in the view port coordinate frame.
+    #
+    array set a $attrs
+    if {[info exists a(transform)]} {
+	set tfm $a(transform)
+	set tfm [string map {{,} { }} $tfm]
+	set tfm [regsub -all {  +} $tfm { }]
+	set tfm [string trim $tfm]
+	while {$tfm ne {}} {
+	    if {[regexp {([a-zA-Z]+)\(([-0-9. ]+)\)(.*)$} $tfm all op args rest]} {
+		set n [llength $args]
+		switch $op {
+		    matrix {
+			if {$n != 6} {
+			    error "bad matrix $tfm"
+			}
+			set nmatrix [matrix-mul-matrix $matrix [abcdef-to-matrix $args]]
+			#puts "$matrix * matrix($args) -> $nmatrix"
+			set matrix $nmatrix
+		    }
+		    translate {
+			if {$n != 1 && $n != 2} {
+			    error "bad translate $tfm"
+			}
+			set nmatrix [matrix-mul-matrix $matrix [abcdef-to-matrix [translate-to-abcdef {*}$args]]]
+			#puts "$matrix * translate($args) -> $nmatrix"
+			set matrix $nmatrix
+		    }
+		    scale {
+			if {$n != 1 && $n != 2} {
+			    error "bad scale $tfm"
+			}
+			set nmatrix [matrix-mul-matrix $matrix [abcdef-to-matrix [scale-to-abcdef {*}$args]]]
+			#puts "$matrix * scale($args) -> $nmatrix"
+			set matrix $nmatrix
+		    }
+		    rotate {
+			if {$n < 1 || $n > 3} {
+			    error "bad rotate $tfm"
+			}
+			set nmatrix [matrix-mul-matrix $matrix [rotate-to-matrix {*}$args]]
+			puts "$matrix * rotate($args) -> $nmatrix"
+			set matrix $nmatrix
+		    }
+		    skewX {
+			if {$n != 1} {
+			    error "bad skewX $tfm"
+			}
+			set nmatrix [matrix-mul-matrix $matrix [skewX-to-matrix {*}$args]]
+			puts "$matrix * skewX($args) -> $nmatrix"
+			set matrix $nmatrix
+		    }
+		    skewY {
+			if {$n != 1} {
+			    error "bad skewY $tfm"
+			}
+			set nmatrix [matrix-mul-matrix $matrix [skewY-to-matrix {*}$args]]
+			puts "$matrix * skewY($args) -> $nmatrix"
+			set matrix $nmatrix
+		    }
+		    default {
+			error "unimplemented transform: $tfm"
+		    }
+		}
+		set tfm [string trim $rest]
+	    }
+	}
+    }
+    return $matrix
+}
+
+# item generators
+#
+proc generate-emit {matrix code ctags} {
+    if {[llength $ctags] == 2 && [lindex $ctags 0] eq {defs}} {
+	# puts "$ctags implies definition of [lindex $ctags 1]"
+	lappend ::defs([lindex $ctags 1]) [list $matrix $code]
+    } else {
+	# puts "$ctags implies immediate code"
+	lappend ::immed [list $matrix $code]
+    }
+}
+proc generate-path {matrix d fill stroke stroke-width ctags} {
+    set results [interpret-path 0 0 $d]
+    foreach {op sx sy coords} $results {
+	puts "$op $sx $sy $coords"
+    }
+}
+proc generate-polygon {matrix points fill stroke stroke-width ctags} {
+    set frag [list .c create polygon {*}$points]
+    if {$fill ne {} && $fill ne {none}} { lappend frag -fill $fill }
+    if {$stroke ne {}} { lappend frag -outline $stroke }
+    if {${stroke-width} ne {}} { lappend frag -width ${stroke-width} }
+    lappend frag -tags $ctags
+    generate-emit $matrix $frag $ctags
+}
+proc generate-line {matrix x1 y1 x2 y2 fill stroke stroke-width ctags} {
+    set frag [list .c create line $x1 $y1 $x2 $y2]
+    if {$fill ne {} && $fill ne {none}} { lappend frag -fill $fill }
+    if {$stroke ne {}} { lappend frag -fill $stroke }
+    if {${stroke-width} ne {}} { lappend frag -width ${stroke-width} }
+    lappend frag -tags $ctags
+    generate-emit $matrix $frag $ctags
+}
+proc generate-rect {matrix x y width height fill stroke stroke-width ctags} {
+    set frag [list .c create rectangle $x $y [expr {$x+$width}] [expr {$y+$height}]]
+    if {$fill ne {} && $fill ne {none}} { lappend frag -fill $fill }
+    if {$stroke ne {}} { lappend frag -outline $stroke }
+    if {${stroke-width} ne {}} { lappend frag -width ${stroke-width} }
+    lappend frag -tags $ctags
+    generate-emit $matrix $frag $ctags
+}
+proc generate-circle {matrix cx cy r fill stroke stroke-width ctags} {
+    set frag [list .c create oval [expr {$cx-$r}] [expr {$cy-$r}] [expr {$cx+$r}] [expr {$cy+$r}]]
+    if {$fill ne {} && $fill ne {none}} { lappend frag -fill $fill }
+    if {$stroke ne {}} { lappend frag -outline $stroke }
+    if {${stroke-width} ne {}} { lappend frag -width ${stroke-width} }
+    lappend frag -tags $ctags
+    generate-emit $matrix $frag $ctags
+}
+proc generate-ellipse {matrix cx cy rx ry fill stroke stroke-width ctags} {
+    set frag [list .c create oval [expr {$cx-$rx}] [expr {$cy-$ry}] [expr {$cx+$rx}] [expr {$cy+$ry}]]
+    if {$fill ne {} && $fill ne {none}} { lappend frag -fill $fill }
+    if {$stroke ne {}} { lappend frag -outline $stroke }
+    if {${stroke-width} ne {}} { lappend frag -width ${stroke-width} }
+    lappend frag -tags $ctags
+    generate-emit $matrix $frag $ctags
+}
+proc generate-use {matrix id ctags} {
+    foreach cmd $::defs($id) {
+	foreach {m code} $cmd break
+	generate-emit [matrix-mul-matrix $matrix $m] $code $ctags
+    }
+}
+#
+# checkers
+#
+proc attr-check {tag attributes args} {
+    array set b $attributes
+    set missing {}
+    foreach {treatment attrs} $args {
+	foreach attr $attrs { 
+	    set e [info exists b($attr)]
+	    switch $treatment {
+		require { if {$e} { unset b($attr) } else { lappend missing $attr } }
+		permit { if {$e} { unset b($attr) } }
+		ignore { if {$e} { unset b($attr) } }
+		default { error "unknown attribute treatment: $treatment" }
+	    }
+	}
+    }
+    set leftovers [array names b]
+    if {$missing ne {} || $leftovers ne {}} {
+	error "attr-check $tag leftovers {$leftovers} missing {$missing}"
+    }
+}
+proc body-empty {tag body} {
+    if {$body ne {}} { error "$tag body is not empty {$body}" }
+}
+array set targets {}
+proc interesting-id {tag attrs} {
+    array set a $attrs
+    if { ! [info exists a(id)]} { error "$tag has no id attribute" }
+    set id $a(id)
+    if {[string first $tag $id] < 0} {
+	if {$tag eq {path} && [string first circle $id] == 0} {
+	    # exception
+	    return 0
+	}
+	if {[info exists ::target($id)]} {
+	    error "$tag $id already defined as $::target($id)"
+	} else {
+	    # puts "saving $tag $id"
+	    set ::target($id) $tag
+	    return 1
+	}
+    }
+    return 0
+}
+proc interesting-target {tag attrs} {
+    array set a $attrs
+    if { ! [info exists a(xlink:href)]} { error "$tag has no href attribute" }
+    set href $a(xlink:href)
+    if {[string first \# $href] != 0} {
+	error "$tag href $href does not start with #"
+    }
+    set href [string range $href 1 end]
+    if { ! [info exists ::target($href)]} { error "$tag href $href is not defined" }
+    return $href
+}
+proc unpack-style {tag attrs} {
+    array set a $attrs
+    if {[info exists a(style)]} {
+	switch -regexp $a(style) {
+	    fill:#[0-9a-f]+ { return [list fill [string range $a(style) 5 end]] }
+	    default { error "$tag unhandled style $a(style)" }
+	}
+    }
+    return {}
+}
+
+# traverse a document tree $dog
+# using $indent as an indentation string
+# and $ctags as the inherited canvas tags
+proc element-traverse {indent ctags matrix doc} {
+    foreach {tag attrs body} $doc {
+	#element-setup $tag $attrs $body
+	#puts stdout "$indent$tag$id$href [array names a]"
+	if {$tag ne "#text"} {
+	    array set a $attrs
+	    if {[info exists a(id)]} {
+		lappend ctags $a(id)
+	    }
+	}
 	switch $tag {
 	    svg {
+		attr-check $tag $attrs require {height width viewBox} ignore {id xmlns:rdf xmlns version xmlns:cc xmlns:xlink xmlns:dc}
+		array set a $attrs
+		#.c configure -height $a(height) -width $a(width)
+		# puts ".c configure -height $a(height) -width $a(width)"
+		puts "# height $a(height) width $a(width) viewBox $a(viewBox)"
 	    }
-	    metadata {
-	    }
-	    rdf:RDF {
-	    }
-	    cc:Work {
-	    }
-	    dc:format {
-	    }
+	    metadata { attr-check $tag $attrs ignore {id} }
+	    rdf:RDF { attr-check $tag $attrs }
+	    cc:Work { attr-check $tag $attrs ignore rdf:about }
+	    dc:format { attr-check $tag $attrs }
 	    \#text {
+		# the "attrs" is the text contained in the element
+		# puts "$tag attr=$attr body=$body"
 	    }
-	    dc:type {
-	    }
-	    defs {
+	    dc:type { attr-check $tag $attrs ignore {rdf:resource} }
+	    defs { 
+		attr-check $tag $attrs ignore {id}
+		lappend ctags defs
 	    }
 	    g {
+		attr-check $tag $attrs permit {transform style} ignore {id}
+		array set a $attrs
+		# only fill is set 
+		# puts "g style = [unpack-style $tag $attrs]"
+		array set a [unpack-style $tag $attrs]
+		set matrix [interpret-transform $tag $attrs $matrix]
+		if {[interesting-id $tag $attrs]} {
+		    lappend ctags $a(id)
+		    set ::defs($a(id)) {}
+		}
+		
 	    }
 	    path {
-		if {[info exists a(d)]} {
-		    # puts stderr "path d [interpret-path $a(d)]"
+		attr-check $tag $attrs require {d} permit {id fill stroke stroke-width style}
+		body-empty $tag $body
+		array set a {fill {} stroke {} stroke-width {}}
+		array set a $attrs
+		array set a [unpack-style $tag $attrs]
+		if {[interesting-id $tag $attrs]} {
+		    lappend ctags $a(id)
+		    set ::defs($a(id)) {}
 		}
+		generate-path $matrix $a(d) $a(fill) $a(stroke) $a(stroke-width) $ctags
 	    }
 	    polygon {
+		attr-check $tag $attrs require {points} permit {stroke stroke-width fill} ignore {id}
+		body-empty $tag $body
+		array set a {fill {} stroke {} stroke-width {}}
+		array set a $attrs
+		generate-polygon $matrix $a(points) $a(fill) $a(stroke) $a(stroke-width) $ctags
 	    }
 	    line {
+		attr-check $tag $attrs require {x1 y1 x2 y2} permit {fill stroke stroke-width} ignore {id}
+		body-empty $tag $body
+		# stroke -> fill # specifies color of line
+		# stroke-width -> width # specifies thickness of line
+		array set a {fill {} stroke {} stroke-width {}}
+		array set a $attrs
+		generate-line $matrix $a(x1) $a(y1) $a(x2) $a(y2) $a(fill) $a(stroke) $a(stroke-width) $ctags
 	    }
 	    rect {
+		attr-check $tag $attrs require {x y width height} permit {stroke stroke-width fill} ignore {id}
+		body-empty $tag $body
+		array set a {fill {} stroke {} stroke-width {}}
+		array set a $attrs
+		generate-rect $matrix $a(x) $a(y) $a(width) $a(height) $a(fill) $a(stroke) $a(stroke-width) $ctags
 	    }
 	    circle {
+		attr-check $tag $attrs require {cx cy r} permit {stroke stroke-width fill} ignore {id}
+		body-empty $tag $body
+		array set a {fill {} stroke {} stroke-width {}}
+		array set a $attrs
+		generate-circle $matrix $a(cx) $a(cy) $a(r) $a(fill) $a(stroke) $a(stroke-width) $ctags
 	    }
 	    ellipse {
+		attr-check $tag $attrs require {cx cy rx ry} permit {stroke stroke-width fill} ignore {id}
+		body-empty $tag $body
+		array set a {fill {} stroke {} stroke-width {}}
+		array set a $attrs
+		generate-ellipse $matrix $a(cx) $a(cy) $a(rx) $a(ry) $a(fill) $a(stroke) $a(stroke-width) $ctags
 	    }
 	    use {
+		# call definition
+		attr-check $tag $attrs require {xlink:href} permit {transform x y} ignore {id}
+		body-empty $tag $body
+		array set a $attrs
+		set x 0; if {[info exists a(x)]} { set x $a(x) }
+		set y 0; if {[info exists a(y)]} { set y $a(y) }
+		set matrix [interpret-transform $tag $attrs $matrix]
+		set id [interesting-target $tag $attrs]
+		generate-use $matrix $id $ctags
 	    }
 	    default {
 		puts stderr "missing tag $tag"
 	    }
 	}
-	foreach item $body {
-	    traverse "$indent " $item
-	}
+	foreach item $body { element-traverse "$indent " $ctags $matrix $item }
     }
 }
 
 set tiles [xml2list $svg]
-pack [canvas .c -width 1000 -height 1000 -background  \#323657] -fill both -expand true
-traverse {} $tiles
+pack [canvas .c -width 2550 -height 400 -background  \#323657] -fill both -expand true
+element-traverse {} {} [abcdef-to-matrix {1 0 0 1 0 0}] $tiles
 
+foreach record $::immed {
+    foreach {matrix code} $record break
+    set abcdef [matrix-to-abcdef $matrix]
+    if {$abcdef eq {1 0 0 1 0 0}} {
+	set id [{*}$code]
+	
+    } else {
+	set id [{*}$code]
+	.c scale $id [lindex $abcdef 0] [lindex $abcdef 3]
+	.c move $id [lindex $abcdef 4] [lindex $abcdef 5]
+    }
+    .c bind $id <Enter> [list puts "item $id tags [.c itemcget $id -tags]"]
+}
+update
+puts "bounding box [.c bbox all]"
+puts "viewBox 0 0 [winfo width .c] [winfo height .c]"

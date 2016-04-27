@@ -562,9 +562,6 @@ snit::widgetadaptor mahjong::canvas {
     option -remaining-moves 0
     option -remaining-tiles 0
     
-    option -history-undo -default move-undo -readonly true
-    option -history-redo -default move-redo -readonly true
-
     component layout
     component tiles
 
@@ -650,6 +647,7 @@ snit::widgetadaptor mahjong::canvas {
 	    {command j {Help} help}
 	    {separator}
 	    {command d {Debug} debug}
+	    {command b {By Name} by-name}
 	    {separator}
 	    {command q {Quit} quit}
 	} {
@@ -703,7 +701,7 @@ snit::widgetadaptor mahjong::canvas {
 	} error]} {
 	    if {$error eq {find-can-unplay for slot2 failed}} {
 		set options(-game) [expr {int(rand()*0x7ffffff)}]
-		puts "retrying new game"
+		puts "retrying new game at $options(-game)"
 	    } else {
 		puts "$error\n$::errorInfo"
 		error $error
@@ -731,6 +729,34 @@ snit::widgetadaptor mahjong::canvas {
     method scores {} {}
     method preferences {} {}
     method debug {} { $self history-restore $options(-deal-history) }
+    method by-name {} {
+	toplevel .b
+	wm title .b {By Name}
+	grid [ttk::label .b.l -text {Choose game by name}] -row 1 -column 0 -columnspan 2 -sticky ew 
+	grid [ttk::entry .b.e] -row 2 -column 0 -columnspan 2 -sticky ew
+	.b.e insert end [format-game $options(-game)]
+	grid [ttk::button .b.okay -text Okay -command [list {*}[mymethod by-name-finish] okay]] -row 3 -column 0 -sticky ew
+	grid [ttk::button .b.cancel -text Cancel -command [list {*}[mymethod by-name-finish] cancel]] -row 3 -column 1 -sticky ew
+	
+    }
+    method by-name-finish {how} {
+	if {$how eq {okay}} { set options(-game) [scan-game [.b.e get]] }
+	destroy .b
+	while {[catch {
+	    puts "by-name-finish $options(-game) [format-game $options(-game)]"
+	    $self setup
+	    $self restart
+	} error]} {
+	    if {$error eq {find-can-unplay for slot2 failed}} {
+		set options(-game) [expr {int(rand()*0x7ffffff)}]
+		puts "retrying new game at $options(-game)"
+	    } else {
+		puts "$error\n$::errorInfo"
+		error $error
+	    }
+	}
+    }
+	
     method quit {} { destroy . }
     
     ##
@@ -789,7 +815,7 @@ snit::widgetadaptor mahjong::canvas {
     }
     
     method update-status {} {
-	set gname [$self format-game $options(-game)]
+	set gname [format-game $options(-game)]
 	if {$options(-start-timer) == 0} {
 	    set elapsed 0
 	} else {
@@ -812,7 +838,7 @@ snit::widgetadaptor mahjong::canvas {
 	return [llength [$self find-moves [$self history-get-made]]]
     }
     
-    method format-game {game} {
+    proc format-game {game} {
 	while {$game != 0} {
 	    set c [expr {$game%26}]
 	    set game [expr {$game/26}]
@@ -821,7 +847,7 @@ snit::widgetadaptor mahjong::canvas {
 	return [join [lreverse $format] {}]
     }
     
-    method scan-game {game} {
+    proc scan-game {game} {
 	set n 0
 	foreach c [split $game {}] {
 	    set n [expr {$n*26+[lsearch {a b c d e f g h i j k l m n o p q r s t u v w x y z} $c]}]
@@ -845,6 +871,22 @@ snit::widgetadaptor mahjong::canvas {
 	    $self menu-enable-disable {} {Undo Redo}
 	}
     }
+    method history-save {} {
+	dict with data history {
+	    return [dict create count 0 future $future items [lreverse $items] made $unmade unmade $made]
+	}
+    }
+    method history-restore {old} {
+	$self clear-selected
+	dict set data history $old
+	dict with data history {
+	    if {$count < $future} {
+		$self menu-enable-disable {Undo Redo} {}
+	    } else {
+		$self menu-enable-disable {Undo} {Redo}
+	    }
+	}
+    }
     method history-get-count {} { return [dict get $data history count] }
     method history-get-future {} { return [dict get $data history future] }
     method history-get-items {} { return [dict get $data history items] }
@@ -858,7 +900,7 @@ snit::widgetadaptor mahjong::canvas {
 	    }
 	    set move $args
 	    foreach {item1 slot1 item2 slot2} $move break
-	    remove-from-list made $slot1 $slot2
+	    set made [remove-from-list $made $slot1 $slot2]
 	    lappend unmade $slot1 $slot2
 	    lappend items $move
 	    incr count 1
@@ -874,7 +916,7 @@ snit::widgetadaptor mahjong::canvas {
 	    incr count -1
 	    set move [lindex $items $count]
 	    foreach {item1 slot1 item2 slot2} $move break
-	    remove-from-list unmade $slot1 $slot2
+	    set unmade [remove-from-list $unmade $slot1 $slot2]
 	    lappend made $slot1 $slot2
 	    $self move-undo {*}$move
 	    if {$count > 0} {
@@ -891,7 +933,7 @@ snit::widgetadaptor mahjong::canvas {
 	dict with data history {
 	    set move [lindex $items $count]
 	    foreach {item1 slot1 item2 slot2} $move break
-	    remove-from-list made $slot1 $slot2
+	    set made [remove-from-list $made $slot1 $slot2]
 	    lappend unmade $slot1 $slot2
 	    $self move-redo {*}$move
 	    incr count 1
@@ -900,22 +942,6 @@ snit::widgetadaptor mahjong::canvas {
 	    } else {
 		$self menu-enable-disable {Undo} {Redo}
 	    }
-	}
-    }
-    method history-restore {old} {
-	$self clear-selected
-	dict set data history $old
-	dict with data history {
-	    if {$count < $future} {
-		$self menu-enable-disable {Undo Redo} {}
-	    } else {
-		$self menu-enable-disable {Undo} {Redo}
-	    }
-	}
-    }
-    method history-save {} {
-	dict with data history {
-	    return [dict create count 0 future $future items [lreverse $items]]
 	}
     }
     
@@ -943,13 +969,14 @@ snit::widgetadaptor mahjong::canvas {
 	$self set-empty $slot1
 	$self set-empty $slot2
     }
-    proc remove-from-list {lname args} {
-	upvar $lname list
+    # this routine doesn't work with 'dict with' instance 
+    proc remove-from-list {list args} {
 	foreach a $args {
 	    set i [lsearch $list $a]
 	    if {$i < 0} { error "remove-from-list: no {$a} in {$list}" }
 	    set list [lreplace $list $i $i]
 	}
+	return $list
     }
     
     ##
@@ -994,8 +1021,8 @@ snit::widgetadaptor mahjong::canvas {
 	# generator, results in shuffle of -slots
 	# and -tiles
 	expr {srand($options(-game))}
-	# puts "$options(-game) [$self format-game $options(-game)] [$self scan-game [$self format-game $options(-game)]]"
-	wm title . "mahjong - [$self format-game $options(-game)]"
+	# puts "$options(-game) [format-game $options(-game)] [scan-game [format-game $options(-game)]]"
+	wm title . "mahjong - [format-game $options(-game)]"
 	set options(-shuffled-slots) [shuffle [$self get-slots]]
 	set options(-shuffled-items) [shuffle [$self get-items]]
 	$self start-status
