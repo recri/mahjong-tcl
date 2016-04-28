@@ -474,12 +474,12 @@ set svg {<svg id="svg3455" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns
  <path id="path4356" d="m925 47.8c0 0.1-1.4 5.1-5.1 7.1-0.5-0.6-3.1-4.2-3.1-4.2l-0.9 0.5 4.4 11.4 1-0.2c0-2.2 1.1-3.5 2.4-4.9 1.8-2.1 3.8-4.5 2.3-9.7l-0.5-1.7-0.5 1.7z" fill="#004C00"/>
  <path id="path4358" d="m929.5 37s-0.5 4.9-1.9 7.8l-0.3 0.7 0.7 0.1c1.8 0.1 3.5-3.7 4.1-5.4 0.4 0 1.4 0.1 2 0.1-0.3 1.2-0.7 2.8-0.7 3.8 0 0.4 0 0.7 0.2 0.9l0.5 0.3c0.8 0.1 5.2-0.2 6.1-0.3v-1c-1.5-0.2-3.3-0.7-3.5-1.2-0.2-0.6 0.6-3 1.5-5l0.3-0.7-9-0.6v0.5z" fill="#004C00"/>
  <path id="path4360" d="m942 46.6l-14.7 0.4s4.9 6.3 5.4 6.9c-2.6 2.4-4.9 4.2-7 5.4l-0.6 0.4 0.6 0.5c1.4 1.1 4.2-0.2 8.6-4.2 2.3 3.2 3.8 5.5 4.3 6.9l0.2 0.7 2.7-2.2v-0.2-0.3c0-0.5 0-2.1-4.7-7.3 3-3.1 5.6-6 5.6-6.1l0.7-0.9h-1.1zm-4.7 2.8c-0.8 0.9-1.7 1.8-2.1 2.3l-1.9-1.9c1.1-0.2 2.7-0.3 4-0.4z" fill="#004C00"/>
- <path id="path4362" d="m931.1 25.2l-1.7 1.7-4.5-5.2h-0.2c-0.7 0-4.3 0.1-5.2 1.4-0.1 0.1-0.1 0.3-0.1 0.4v0.2c0.1 0.5 0.7 0.7 1.8 1.1 0.5 0.2 1.2 0.5 1.5 0.7-1.1 2.3-2.3 4.4-3.7 6.4-0.7-0.4-4.1-2.5-4.1-2.5l-0.6 0.8s2.8 3.1 3.3 3.6c-2.8 3.5-6.2 6.6-10.4 9.5l0.4 0.9c12.8-3.3 21.9-16.2 22.1-16.5l2.3 2.2c-3.2 2-6.2 3.8-6.2 3.8l0.5 0.9c2-0.8 4.8-1.9 7.6-3l11.1 10.8 10.8-3.8-0.1-1c-5.1-0.2-12-4.4-17.1-7.9 2.9-1 5.3-1.7 6.4-1.6 0.7 0 0.9-0.3 1-0.5 0.4-1.1-3.5-4.4-11.4-9.7l-0.5-0.3-0.2 0.6m1 8.8c0.7-1.2 1.6-2.9 1.9-3.3 0.5 0.3 1.8 1.1 2.5 1.6-0.4 0.2-1.9 1.1-3.7 2.3-0.2-0.2-0.4-0.4-0.7-0.6z" fill="#004C00"/>
+ <path id="path4362" d="m931.1 25.2l-1.7 1.7-4.5-5.2h-0.2c-0.7 0-4.3 0.1-5.2 1.4-0.1 0.1-0.1 0.3-0.1 0.4v0.2c0.1 0.5 0.7 0.7 1.8 1.1 0.5 0.2 1.2 0.5 1.5 0.7-1.1 2.3-2.3 4.4-3.7 6.4-0.7-0.4-4.1-2.5-4.1-2.5l-0.6 0.8s2.8 3.1 3.3 3.6c-2.8 3.5-6.2 6.6-10.4 9.5l0.4 0.9c12.8-3.3 21.9-16.2 22.1-16.5l2.3 2.2c-3.2 2-6.2 3.8-6.2 3.8l0.5 0.9c2-0.8 4.8-1.9 7.6-3l11.1 10.8 10.8-3.8-0.1-1c-5.1-0.2-12-4.4-17.1-7.9 2.9-1 5.3-1.7 6.4-1.6 0.7 0 0.9-0.3 1-0.5 0.4-1.1-3.5-4.4-11.4-9.7l-0.5-0.3-0.2 0.6zm1 8.8c0.7-1.2 1.6-2.9 1.9-3.3 0.5 0.3 1.8 1.1 2.5 1.6-0.4 0.2-1.9 1.1-3.7 2.3-0.2-0.2-0.4-0.4-0.7-0.6z" fill="#004C00"/>
  <path id="path4364" d="m926.9 35.4l-6.2 3.5 0.3 0.9s1.1-0.1 1.8-0.1c-0.2 0.7-0.6 1.8-1.1 3.2-0.6 0-5-0.2-5-0.2l0.8 0.9c0.3 0.3 1.6 1.7 2.7 1.7 0 0 0.3-0.1 0.6-0.1-0.8 2-1.7 3.7-2.6 5l0.7 0.7c1.5-1.2 3.2-3.4 4.8-6.4 0.3-0.1 1.2-0.4 1.2-0.4l-0.1-1h-0.4c1.8-3.6 3.1-7.1 3.1-7.1l0.5-1.3-1.1 0.7z" fill="#004C00"/>
  <path id="path4366" d="m925 135.8c0 0.1-1.4 5.1-5.1 7.1-0.5-0.6-3.1-4.2-3.1-4.2l-0.9 0.5 4.4 11.4 1-0.2c0-2.2 1.1-3.5 2.4-4.9 1.8-2.1 3.8-4.5 2.3-9.7l-0.5-1.7-0.5 1.7z" fill="#004C00"/>
  <path id="path4368" d="m929.5 125s-0.5 4.9-1.9 7.8l-0.3 0.7 0.7 0.1c1.8 0.1 3.5-3.7 4.1-5.4 0.4 0 1.4 0.1 2 0.1-0.3 1.2-0.7 2.8-0.7 3.8 0 0.4 0 0.7 0.2 0.9l0.5 0.3c0.8 0.1 5.2-0.2 6.1-0.3v-1c-1.5-0.2-3.3-0.7-3.5-1.2-0.2-0.6 0.6-3 1.5-5l0.3-0.7-9-0.6v0.5z" fill="#004C00"/>
  <path id="path4370" d="m942 134.6l-14.7 0.4s4.9 6.3 5.4 6.9c-2.6 2.4-4.9 4.2-7 5.4l-0.6 0.4 0.6 0.5c1.4 1.1 4.2-0.2 8.6-4.2 2.3 3.2 3.8 5.5 4.3 6.9l0.2 0.7 2.7-2.3v-0.2-0.3c0-0.5 0-2.1-4.7-7.3 3-3.1 5.6-6 5.6-6.1l0.7-0.9-1.1 0.1zm-4.7 2.8c-0.8 0.9-1.7 1.8-2.1 2.3l-1.9-1.9c1.1-0.2 2.7-0.3 4-0.4z" fill="#004C00"/>
- <path id="path4372" d="m931.1 113.2l-1.7 1.7-4.5-5.2h-0.2c-0.7 0-4.3 0.1-5.2 1.4-0.1 0.1-0.1 0.3-0.1 0.4v0.2c0.1 0.5 0.7 0.7 1.8 1.1 0.5 0.2 1.2 0.5 1.5 0.7-1.1 2.3-2.3 4.4-3.7 6.4-0.7-0.4-4.1-2.5-4.1-2.5l-0.6 0.8s2.8 3.1 3.3 3.6c-2.8 3.5-6.2 6.6-10.4 9.5l0.4 0.9c12.8-3.3 21.9-16.2 22.1-16.5l2.3 2.2c-3.2 2-6.2 3.8-6.2 3.8l0.5 0.9c2-0.8 4.8-1.9 7.6-3l11.4 10.9 10.8-3.8-0.1-1c-5.1-0.2-12-4.4-17.1-7.9 2.9-1 5.3-1.7 6.4-1.6 0.7 0 0.9-0.3 1-0.5 0.4-1.1-3.5-4.4-11.4-9.7l-0.5-0.3-0.2 0.6m0.7 8.7c0.7-1.2 1.6-2.9 1.9-3.3 0.5 0.3 1.8 1.1 2.5 1.6-0.4 0.2-1.9 1.1-3.7 2.3-0.2-0.2-0.4-0.4-0.7-0.6z" fill="#004C00"/>
+ <path id="path4372" d="m931.1 113.2l-1.7 1.7-4.5-5.2h-0.2c-0.7 0-4.3 0.1-5.2 1.4-0.1 0.1-0.1 0.3-0.1 0.4v0.2c0.1 0.5 0.7 0.7 1.8 1.1 0.5 0.2 1.2 0.5 1.5 0.7-1.1 2.3-2.3 4.4-3.7 6.4-0.7-0.4-4.1-2.5-4.1-2.5l-0.6 0.8s2.8 3.1 3.3 3.6c-2.8 3.5-6.2 6.6-10.4 9.5l0.4 0.9c12.8-3.3 21.9-16.2 22.1-16.5l2.3 2.2c-3.2 2-6.2 3.8-6.2 3.8l0.5 0.9c2-0.8 4.8-1.9 7.6-3l11.4 10.9 10.8-3.8-0.1-1c-5.1-0.2-12-4.4-17.1-7.9 2.9-1 5.3-1.7 6.4-1.6 0.7 0 0.9-0.3 1-0.5 0.4-1.1-3.5-4.4-11.4-9.7l-0.5-0.3-0.2 0.6zm0.7 8.7c0.7-1.2 1.6-2.9 1.9-3.3 0.5 0.3 1.8 1.1 2.5 1.6-0.4 0.2-1.9 1.1-3.7 2.3-0.2-0.2-0.4-0.4-0.7-0.6z" fill="#004C00"/>
  <path id="path4374" d="m926.9 123.4l-6.2 3.5 0.3 0.9s1.1-0.1 1.8-0.1c-0.2 0.7-0.6 1.8-1.1 3.2-0.6 0-5-0.2-5-0.2l0.8 0.9c0.3 0.3 1.6 1.7 2.7 1.7 0 0 0.3-0.1 0.6-0.1-0.8 2-1.7 3.7-2.6 5l0.7 0.7c1.5-1.2 3.2-3.4 4.8-6.4 0.3-0.1 1.2-0.4 1.2-0.4l-0.1-1h-0.4c1.8-3.6 3.1-7.1 3.1-7.1l0.5-1.3-1.1 0.7z" fill="#004C00"/>
  <rect id="rect4376" height="69" width="45" y="6" x="2381" fill="#BFBFBF"/>
  <rect id="rect4378" height="65" width="41" y="8" x="2383" fill="#F4F4F4"/>
@@ -614,64 +614,61 @@ namespace eval path {
 	    upvar args args
 	    if {[llength $args] % $mod != 0} { puts "wrong number of extra args for $op" }
 	}
-	proc h {sx sy dx args} {
-	    set coords {}
-	    lappend coords [set sx [expr {$sx+$dx}]] $sy
-	    foreach dx $args {
-		lappend coords [set sx [expr {$sx+$dx}]] $sy
-	    }
-	    return [list $sx $sy $coords]
-	}
-	proc v {sx sy dy args} {
-	    set coords {}
-	    lappend coords $sx [set sy [expr {$sy+$dy}]]
-	    foreach dy $args {
-		lappend coords $sx [set sy [expr {$sy+$dy}]]
-	    }
-	    return [list $sx $sy $coords]
-	}
-	proc l {sx sy dx dy args} {
+	proc h {dx args} { return [list $dx {*}$args] }
+	proc v {dy args} { return [list $dy {*}$args] }
+	proc l {dx dy args} {
 	    checkargs l 2 
-	    set coords {}
-	    lappend coords [set sx [expr {$sx+$dx}]] [set sy [expr {$sy+$dy}]]
-	    foreach dx $args {
-		lappend coords [set sx [expr {$sx+$dx}]] [set sy [expr {$sy+$dy}]]
-	    }
-	    return [list $sx $sy $coords]
+	    return [list $dx $dy {*}$args]
 	}
-	proc m {sx sy dx dy} { 
-	    return [list [expr {$sx+$dx}] [expr {$sy+$dy}] {}]
-	}
-	proc z {sx sy} {
-	    return [list $sx $sy {}]
-	}
-	proc c {sx sy dc1x dc1y dc2x dc2y dx dy args} {
+	proc m {dx dy} { return [list $dx $dy] }
+	proc z {} { return {} }
+	## okay, these d*x and d*y are all relative to the previous x and y
+	## tk::canvas line and polygon would use -smooth raw to do a cubic bezier
+	## and the coords go knot ctl ctl knot ctl ctl, 
+	## while the svg path c goes ctl ctl knot
+	## with the initial knot being the point before?
+	## or the two control points being before and after the knot?
+	proc c {dc1x dc1y dc2x dc2y dx dy args} {
 	    checkargs c 6
-	    ## okay, these d*x and d*y are all relative to the previous x and y
-	    ## tk::canvas line and polygon would use -smooth raw to do a cubic bezier
-	    ## and the coords go knot ctl ctl knot ctl ctl, 
-	    ## while the svg path c goes ctl ctl knot
-	    ## with the initial knot being the point before
-	    set coords {}
-	    lappend coords $sx $sy 
-	    lappend coords [expr {$sx+$dc1x}] [expr {$sy+$dc1y}]
-	    lappend coords [expr {$sx+$dc2x}] [expr {$sy+$dc2y}] 
-	    lappend coords [set sx [expr {$sx+$dx}]] [set sy [expr {$sy+$dy}]]
-	    foreach {dc1x dc1y dc2x dc2y dx dy} $args {
-		lappend coords [expr {$sx+$dc1x}] [expr {$sy+$dc1y}]
-		lappend coords [expr {$sx+$dc2x}] [expr {$sy+$dc2y}] 
-		lappend coords [set sx [expr {$sx+$dx}]] [set sy [expr {$sy+$dy}]]
-	    }
-	    return [list $sx $sy $coords]
+	    return [list $dc1x $dc1y $dc2x $dc2y $dx $dy {*}$args]
 	}
-	proc s {sx sy dcx dcy dx dy args} {
+	proc s {dcx dcy dx dy args} {
 	    checkargs s 4 
-	    
+	    return [list $dcx $dcy $dx $dy {*}$args]
 	}
     }
 }
 
-proc interpret-path {sx sy d} {
+proc path-translate-mc {cmd m c} {
+    foreach {x y} [lrange $m 1 end] break
+    lappend cmd $x $y
+    foreach {dc1x dc1y dc2x dc2y dx dy} [lrange $c 1 end] {
+	set c1x [expr {$x+$dc1x}]
+	set c1y [expr {$y+$dc1y}]
+	set c2x [expr {$x+$dc2x}]
+	set c2y [expr {$y+$dc2y}]
+	set nx [expr {$x+$dx}]
+	set ny [expr {$y+$dy}]
+	lappend cmd $c1x $c1y $c2x $c2y $nx $ny
+	set x $nx
+	set y $ny
+    }
+    lappend cmd -smooth raw
+    return $cmd
+}
+#
+# this just parses all those wierdly concatenated operands into clean lists
+# the additional interpretations available are:
+#  1) rewrite h dx1 dx2 ... to l dx1 0 dx2 0 ...
+#  2) rewrite v dy1 dy2 ... to l 0 dy1 0 dy2 ...
+#  3) rewrite s dcx dcy dx dy ... into c ... by inserting the mirrored control point
+#	(there are relatively few s operations in the tiles)
+#  4) rewrite l concatenated to c by replicating the knot point as control point
+#  5) rewrite m c* z as a smoothed canvas polygon
+#  6) rewrite m c* (anything but z) as a smoothed canvas line
+#	(there are very few of these in the tiles)
+#
+proc interpret-path {d} {
     set n [string length $d]
     set cmds {}
     set op {}
@@ -701,20 +698,93 @@ proc interpret-path {sx sy d} {
     if {$num ne {}} { lappend nums $num; set num {} }
     if {$op ne {}} { lappend cmds [list $op {*}$nums]; set nums {} }
 
+    # run the accumulated coordinates through the path::d::op's
+    # translate from abbreviated commands to cubic beziers
+    set last {}
     set results {}
     foreach cmd $cmds {
-	set op path::d::[lindex $cmd 0]
-	set args [lrange $cmd 1 end]
-	set cmd [list $op $sx $sy {*}$args]
-	if {[catch {{*}$cmd} result]} {
+	if {[catch {path::d::[lindex $cmd 0] {*}[lrange $cmd 1 end]} result]} {
 	    puts "evaluate: $cmd\n$result"
 	} else {
-	    foreach {sx sy coords} $result break
-	    lappend results [list [string index $op end] {*}$result]
+	    set op [lindex $cmd 0]
+	    set nresult $result
+	    while {1} {
+		set result $nresult
+		set nresult {}
+		switch $op {
+		    h { 
+			foreach dx $result { lappend nresult $dx 0 }
+			set op l
+			continue
+		    }
+		    v {
+			foreach dy $result { lappend nresult 0 $dy }
+			set op l
+			continue
+		    }
+		    l {
+			foreach {dx dy} $result { lappend nresult $dx $dy $dx $dy $dx $dy }
+			set op c
+			continue
+		    }
+		    s {
+			# this is simplified by the change of coordinate frame.
+			# ldc2x ldc2y and ldx ldy are specified relative to llx lly
+			# so we can mirror ldcx ldcy through ldx ldy by subtraction,
+			set dc1x 0 
+			set dc1y 0
+			foreach {dc2x dc2y dx dy} $result {
+			    lappend nresult $dc1x $dc1y $dc2x $dc2y $dx $dy
+			    # compute next dc1x and dc1y
+			    set d1cx [expr {$dx-$dc2x}]
+			    set d1cy [expr {$dy-$dc2y}]
+			}
+			set op c
+			continue
+		    }
+		    m - z {
+			break
+		    }
+		}
+		break
+	    }
+	    if {$last ne {} && [lindex $last 0] eq $op} {
+		set last [list $op {*}[lrange $last 1 end] {*}$result]
+		set results [lreplace $results end end $last]
+	    } else {
+		set last [list $op {*}$result]
+		lappend results $last
+	    }
 	}
     }
-    # puts "path d [join [lsort [array names sum]] {}]"
-    return $results
+    #
+    # concatenate mcz and mc into canvas polygon and line items
+    # translate from relative to absolute coordinates
+    #
+    # puts "path d [join [lmap r $results {lindex $r 0}] {}]"
+    set cmds {}
+    while {[llength $results] > 0} {
+	set type [join [lmap r $results {lindex $r 0}] {}];
+	switch -glob $type {
+	    mcz* {
+		set m [lindex $results 0]
+		set c [lindex $results 1]
+		set z [lindex $results 2]
+		lappend cmds [path-translate-mc {.c create polygon} $m $c]
+		set results [lrange $results 3 end]
+	    }
+	    mc* {
+		set m [lindex $results 0]
+		set c [lindex $results 1]
+		lappend cmds [path-translate-mc {.c create line} $m $c]
+		set results [lrange $results 2 end]
+	    }
+	    default {
+		error "unexpected type $type"
+	    }
+	}
+    }
+    return $cmds
 }
 ##
 ## interpret transforms
@@ -741,6 +811,12 @@ proc scale-to-abcdef {x {y {}}} {
 # translate(x y) as a matrix
 proc translate-to-abcdef {x {y 0}} {
     return [list 1 0 0 1 $x $y]
+}
+proc matrix-from-translate {x {y 0}} {
+    return [abcdef-to-matrix [translate-to-abcdef $x $y]]
+}
+proc matrix-from-scale {x {y {}}} {
+    return [abcdef-to-matrix [scale-to-abcdef $x $y]]
 }
 # vector dot product between vectors written as rows
 proc vector-dot {v1 v2} {
@@ -861,18 +937,28 @@ proc interpret-transform {tag attrs matrix} {
 # item generators
 #
 proc generate-emit {matrix code ctags} {
-    if {[llength $ctags] == 2 && [lindex $ctags 0] eq {defs}} {
-	# puts "$ctags implies definition of [lindex $ctags 1]"
-	lappend ::defs([lindex $ctags 1]) [list $matrix $code]
+    set i [lsearch $ctags {defs}]
+    if {$i >= 0} {
+	set id [lindex $ctags $i+1]
+	# puts "$ctags implies definition of $id"
+	lappend ::defs($id) [list $matrix $code]
     } else {
 	# puts "$ctags implies immediate code"
 	lappend ::immed [list $matrix $code]
     }
 }
 proc generate-path {matrix d fill stroke stroke-width ctags} {
-    set results [interpret-path 0 0 $d]
-    foreach {op sx sy coords} $results {
-	puts "$op $sx $sy $coords"
+    foreach frag [interpret-path $d] {
+	if {[string first {create line} $frag] > 0} {
+	    if {$stroke ne {}} { lappend frag -fill $stroke }
+	    if {${stroke-width} ne {}} { lappend frag -width ${stroke-width} }
+	} elseif {[string first {create polygon} $frag] > 0} {
+	    if {$fill ne {} && $fill ne {none}} { lappend frag -fill $fill }
+	    if {$stroke ne {}} { lappend frag -outline $stroke }
+	    if {${stroke-width} ne {}} { lappend frag -width ${stroke-width} }
+	}
+	lappend frag -tags $ctags
+	generate-emit $matrix $frag $ctags
     }
 }
 proc generate-polygon {matrix points fill stroke stroke-width ctags} {
@@ -916,8 +1002,10 @@ proc generate-ellipse {matrix cx cy rx ry fill stroke stroke-width ctags} {
     generate-emit $matrix $frag $ctags
 }
 proc generate-use {matrix id ctags} {
+    # puts "generate-use $matrix $id $ctags :: $::defs($id)"
     foreach cmd $::defs($id) {
 	foreach {m code} $cmd break
+	# puts "generate-emit [matrix-mul-matrix $matrix $m] $code $ctags"
 	generate-emit [matrix-mul-matrix $matrix $m] $code $ctags
     }
 }
@@ -1007,7 +1095,7 @@ proc element-traverse {indent ctags matrix doc} {
 		array set a $attrs
 		#.c configure -height $a(height) -width $a(width)
 		# puts ".c configure -height $a(height) -width $a(width)"
-		puts "# height $a(height) width $a(width) viewBox $a(viewBox)"
+		# puts "# height $a(height) width $a(width) viewBox $a(viewBox)"
 	    }
 	    metadata { attr-check $tag $attrs ignore {id} }
 	    rdf:RDF { attr-check $tag $attrs }
@@ -1033,7 +1121,6 @@ proc element-traverse {indent ctags matrix doc} {
 		    lappend ctags $a(id)
 		    set ::defs($a(id)) {}
 		}
-		
 	    }
 	    path {
 		attr-check $tag $attrs require {d} permit {id fill stroke stroke-width style}
@@ -1092,6 +1179,9 @@ proc element-traverse {indent ctags matrix doc} {
 		set x 0; if {[info exists a(x)]} { set x $a(x) }
 		set y 0; if {[info exists a(y)]} { set y $a(y) }
 		set matrix [interpret-transform $tag $attrs $matrix]
+		if {$x != 0 || $y != 0} {
+		    set matrix [matrix-mul-matrix $matrix [matrix-from-translate $x $y]]
+		}
 		set id [interesting-target $tag $attrs]
 		generate-use $matrix $id $ctags
 	    }
@@ -1115,11 +1205,14 @@ foreach record $::immed {
 	
     } else {
 	set id [{*}$code]
-	.c scale $id [lindex $abcdef 0] [lindex $abcdef 3]
+	.c scale $id 0 0 [lindex $abcdef 0] [lindex $abcdef 3]
 	.c move $id [lindex $abcdef 4] [lindex $abcdef 5]
     }
     .c bind $id <Enter> [list puts "item $id tags [.c itemcget $id -tags]"]
 }
-update
-puts "bounding box [.c bbox all]"
-puts "viewBox 0 0 [winfo width .c] [winfo height .c]"
+bind .c <1> [list .c scan mark %x %y]
+#bind .c <ButtonRelease-1> [list ...]
+bind .c <B1-Motion> [list .c scan dragto %x %y 1]
+#update
+#puts "bounding box [.c bbox all]"
+#puts "viewBox 0 0 [winfo width .c] [winfo height .c]"

@@ -5,18 +5,25 @@ framework.
 
 Yet to do:
 
-[ ] Get the adaptive framing and sizing to work correctly.
-[ ] Scale images for window size.
 [x] Make undo/redo work correctly.
 [x] Make undo/redo work on the game generation thread.
 [x] Make count-moves work.
-[x] Make a menu accelerator that opens the menu
-[x] Make rows and blocks persistent data
-[x] Make row closures persistent data
-[ ] Make the svg tile set work without inkscape
-[ ] Switch back to using xml layout descriptor
-[x] Prune the unused methods
-[ ] Implement hints
-[ ] Implement right/left cursor cycling through hints?
+[x] Make a menu accelerator that opens the menu.
+[x] Make rows and blocks persistent data.
+[x] Make row closures persistent data.
 [x] Test generated deal in reverse against play rules.
 [x] Loop out the failed deals.
+[x] Prune the unused methods.
+[x] Implement choose game by name.    
+[ ] Get the adaptive framing and sizing to work correctly.
+[ ] Scale images for window size.
+[ ] Make the svg tile set work without inkscape
+[ ] Switch back to using xml layout descriptor
+[ ] Implement hints
+[ ] Implement right/left cursor cycling through hints?
+  This doesn't actually work, though I suppose that
+  if you select a tile, hint might cycle through the
+  matching tiles.
+[ ] Fix the generator so it doesn't fail.
+[ ] Implement Help.
+[ ] Implement Save/Restore game.

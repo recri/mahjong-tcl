@@ -900,7 +900,7 @@ snit::widgetadaptor mahjong::canvas {
 	    }
 	    set move $args
 	    foreach {item1 slot1 item2 slot2} $move break
-	    set made [remove-from-list $made $slot1 $slot2]
+	    remove-from-list made $slot1 $slot2
 	    lappend unmade $slot1 $slot2
 	    lappend items $move
 	    incr count 1
@@ -916,7 +916,7 @@ snit::widgetadaptor mahjong::canvas {
 	    incr count -1
 	    set move [lindex $items $count]
 	    foreach {item1 slot1 item2 slot2} $move break
-	    set unmade [remove-from-list $unmade $slot1 $slot2]
+	    remove-from-list unmade $slot1 $slot2
 	    lappend made $slot1 $slot2
 	    $self move-undo {*}$move
 	    if {$count > 0} {
@@ -933,7 +933,7 @@ snit::widgetadaptor mahjong::canvas {
 	dict with data history {
 	    set move [lindex $items $count]
 	    foreach {item1 slot1 item2 slot2} $move break
-	    set made [remove-from-list $made $slot1 $slot2]
+	    remove-from-list made $slot1 $slot2
 	    lappend unmade $slot1 $slot2
 	    $self move-redo {*}$move
 	    incr count 1
@@ -969,14 +969,13 @@ snit::widgetadaptor mahjong::canvas {
 	$self set-empty $slot1
 	$self set-empty $slot2
     }
-    # this routine doesn't work with 'dict with' instance 
-    proc remove-from-list {list args} {
+    proc remove-from-list {lname args} {
+	upvar $lname list
 	foreach a $args {
 	    set i [lsearch $list $a]
 	    if {$i < 0} { error "remove-from-list: no {$a} in {$list}" }
 	    set list [lreplace $list $i $i]
 	}
-	return $list
     }
     
     ##
