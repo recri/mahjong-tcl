@@ -1,7 +1,10 @@
-This is an implementation of Mahjong solitaire in Tcl/Tk/Snit, because
-I play gnome-mahjongg all the time and I wanted to change it.  This was
-a lot easier and faster for me than learning how to use the gnome games 
-framework.
+This is an implementation of Mahjong solitaire in Tcl/Tk/Snit/Img.
+Because I play gnome-mahjongg all the time and I wanted to change it.
+This was a lot easier and faster for me than learning how to use the 
+gnome games framework.
+
+The script should run on Linux, Windows, and MacOS using the ActiveTcl
+distribution from activestate.com.
 
 Yet to do:
 
@@ -18,12 +21,20 @@ Yet to do:
 [ ] Get the adaptive framing and sizing to work correctly.
 [ ] Scale images for window size.
 [ ] Make the svg tile set work without inkscape
+[ ] Fix the tiles that don't work in my svg-to-canvas
+  because they depend on interior regions in paths being
+  transparent to the background.
 [ ] Switch back to using xml layout descriptor
 [ ] Implement hints
 [ ] Implement right/left cursor cycling through hints?
   This doesn't actually work, though I suppose that
   if you select a tile, hint might cycle through the
-  matching tiles.
+  matching tiles.  So you could implement a cursor motion
+  key mode which cycled through the selectable tiles, used
+  <return> to select and then cycled through the selectable 
+  matches, and finally used <return> to select the play, or
+  used <backspace> to cancel the first selection.
 [ ] Fix the generator so it doesn't fail.
+  This does throw an uncaught exception sometimes, not sure how.
 [ ] Implement Help.
 [ ] Implement Save/Restore game.
