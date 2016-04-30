@@ -336,7 +336,7 @@
     <g id="season-3"> <!-- 2240 -->
       <use id="use3854" y="6" x="13" xlink:href="#season"/>
       <path id="path4426" stroke="#678ED3" d="m27.6 19.9c-0.8-2.5 4.7 2.6 2.6 2.2s-10.6 0.1-11.9 0.6l-0.6-2.2c1.8 0.2 9.9-0.6 9.9-0.6z" fill="#99B9FF"/>
-      <polygon id="polygon4430" stroke="#678ED3" points="2264.9 16.3 2265.7 17.8 2260.9 18.3 2260.4 16.8" fill="#99B9FF"/>
+      <polygon id="polygon4430" stroke="#678ED3" points="24.9 16.3 25.7 17.8 20.9 18.3 20.4 16.8" fill="#99B9FF"/>
       <path id="path4432" stroke="#678ED3" d="m27.1 12.5c-2-2.3-2.8 0.6-9 0.6l1.1 1.7 7.7-1 0.2-1.3z" fill="#99B9FF"/>
     </g>
     <g id="season-4"> <!-- 2304 -->
@@ -356,7 +356,7 @@
     <g id="flower-3"> <!-- 2560 -->
       <use id="use3870" y="6" x="13" xlink:href="#flower"/>
       <path id="path4454" stroke="#7C5A2D" stroke-width=".5" d="m26.9 26.3c-0.8-2.5 4.7 2.6 2.6 2.2s-10.6 0.1-11.9 0.6l-0.6-2.2c1.9 0.2 9.9-0.6 9.9-0.6z" fill="#DBC879"/>
-      <polygon id="polygon4458" stroke="#7C5A2D" stroke-width=".5" points="2584.3 22.6 2585 24.1 2580.3 24.7 2579.7 23.2" fill="#DBC879"/>
+      <polygon id="polygon4458" stroke="#7C5A2D" stroke-width=".5" points="24.3 22.6 25 24.1 20.3 24.7 19.7 23.2" fill="#DBC879"/>
       <path id="path4460" stroke="#7C5A2D" stroke-width=".5" d="m26.5 18.8c-2-2.3-2.8 0.6-9 0.6l1.1 1.7 7.7-1 0.2-1.3z" fill="#DBC879"/>
     </g>
     <g id="flower-4"> <!-- 2624 -->

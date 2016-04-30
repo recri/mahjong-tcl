@@ -488,18 +488,19 @@ snit::type mahjong::tiles {
     constructor {args} {
 	$self configure {*}$args
 
-	# -e $png == export to png file $png
-	# -D == export drawing
-	# -d $dpi == export at $dpi dots per inch (but better overridden by -w $width)
-	# -w $width == export at width of $width pixels
-	# -y 0.0 == export with background set to transparent
 	set n [llength $options(-tiles)]
 	set twid $options(-width)
 	set thgt [expr {$twid*11/8}]
 	set options(-height) $thgt
 
 	if { ! [file exists $options(-png)]} {
-	    exec inkscape -e $options(-png) -D -w [expr {$n*$twid}] -y 0.0 $options(-svg)
+	    # -e $png == export to png file $png
+	    # -D == export drawing
+	    # -d $dpi == export at $dpi dots per inch (but better overridden by -w $width)
+	    # -w $width == export at width of $width pixels
+	    # -y 0.0 == export with background set to transparent
+	    # exec inkscape -e $options(-png) -D -w [expr {$n*$twid}] -y 0.0 $options(-svg)
+	    exec ./svg-stuff -w [expr {$n*$twid}] $options(-svg) $options(-png)
 	}
 
 	set options(-image) [image create photo -file $options(-png)]
@@ -1371,4 +1372,3 @@ pack [mahjong::canvas .c -background \#323657 \
 	  -layout [mahjong::layout ::layout -map $mymap] \
 	  -tiles [mahjong::tiles ::tiles -svg postmodern.svg -png postmodern-$width.png -width $width] \
 	 ] -fill both -expand true
-

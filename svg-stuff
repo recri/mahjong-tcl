@@ -1,5 +1,9 @@
 #!/usr/bin/wish
 
+package require Tcl
+package require Tk
+package require Img
+
 #
 # translate the svg defining the mahjong tile set
 # into tk::canvas graphics so the tiles can be 
@@ -452,7 +456,7 @@ namespace eval svg::generate {}
 # the use can be expanded in
 # the call.
 #
-proc svg::generate::emit {matrix code ctags} {
+proc svg::generate::emit {win matrix code ctags} {
     if {[svg::in-defs $ctags]} {
 	# set id [lindex $ctags $i+1]
 	# puts "$ctags implies definition of $id"
@@ -462,68 +466,63 @@ proc svg::generate::emit {matrix code ctags} {
 	lappend ::immed [list $matrix $code]
     }
 }
-proc svg::generate::frag-finish {matrix frag ctags} {
+proc svg::generate::frag-finish {win matrix frag ctags} {
     if {[lsearch $frag -width] >= 0} { lappend ctags scale-width }
     lappend frag -tags $ctags
-    emit $matrix $frag $ctags
+    emit $win $matrix $frag $ctags
 }
-proc svg::generate::line-finish {matrix frag fill stroke stroke-width ctags} {
+proc svg::generate::line-finish {win matrix frag fill stroke stroke-width ctags} {
     if {$stroke ne {}} { lappend frag -fill $stroke }
     if {${stroke-width} ne {}} { lappend frag -width ${stroke-width} }
-    frag-finish $matrix $frag $ctags
+    frag-finish $win $matrix $frag $ctags
 }
-proc svg::generate::poly-finish {matrix frag fill stroke stroke-width ctags} {
+proc svg::generate::poly-finish {win matrix frag fill stroke stroke-width ctags} {
     if {$fill eq {none}} { set fill {} }
     lappend frag -fill $fill
     if {$stroke ne {}} { lappend frag -outline $stroke }
     if {${stroke-width} ne {}} { lappend frag -width ${stroke-width} }
-    frag-finish $matrix $frag $ctags
+    frag-finish $win $matrix $frag $ctags
 }
-proc svg::generate::path {matrix d fill stroke stroke-width ctags} {
+proc svg::generate::path {win matrix d fill stroke stroke-width ctags} {
     foreach cmd [svg::path-interpret $d] {
 	set op [lindex $cmd 0]
 	set coords [lrange $cmd 1 end]
 	switch $op {
-	    mcz { poly-finish $matrix [list .c create polygon {*}$coords -smooth raw] $fill $stroke ${stroke-width} $ctags }
-	    mc { line-finish $matrix [list .c create line {*}$coords -smooth raw] $fill $stroke ${stroke-width} $ctags }
+	    mcz { poly-finish $win $matrix [list $win create polygon {*}$coords -smooth raw] $fill $stroke ${stroke-width} $ctags }
+	    mc { line-finish $win $matrix [list $win create line {*}$coords -smooth raw] $fill $stroke ${stroke-width} $ctags }
 	    default { error "unknown op $op" }
 	}
     }
 }
-proc svg::generate::polygon {matrix points fill stroke stroke-width ctags} {
-    set frag [list .c create polygon {*}$points]
-    poly-finish $matrix $frag $fill $stroke ${stroke-width} $ctags
+proc svg::generate::polygon {win matrix points fill stroke stroke-width ctags} {
+    set frag [list $win create polygon {*}$points]
+    poly-finish $win $matrix $frag $fill $stroke ${stroke-width} $ctags
 }
-proc svg::generate::line {matrix x1 y1 x2 y2 fill stroke stroke-width ctags} {
-    set frag [list .c create line $x1 $y1 $x2 $y2]
-    line-finish $matrix $frag $fill $stroke ${stroke-width} $ctags
+proc svg::generate::line {win matrix x1 y1 x2 y2 fill stroke stroke-width ctags} {
+    set frag [list $win create line $x1 $y1 $x2 $y2]
+    line-finish $win $matrix $frag $fill $stroke ${stroke-width} $ctags
 }
-proc svg::generate::rect {matrix x y width height fill stroke stroke-width ctags} {
-    set frag [list .c create rectangle $x $y [expr {$x+$width}] [expr {$y+$height}]]
-    poly-finish $matrix $frag $fill $stroke ${stroke-width} $ctags
+proc svg::generate::rect {win matrix x y width height fill stroke stroke-width ctags} {
+    set frag [list $win create rectangle $x $y [expr {$x+$width}] [expr {$y+$height}]]
+    poly-finish $win $matrix $frag $fill $stroke ${stroke-width} $ctags
 }
-proc svg::generate::circle {matrix cx cy r fill stroke stroke-width ctags} {
-    set frag [list .c create oval [expr {$cx-$r}] [expr {$cy-$r}] [expr {$cx+$r}] [expr {$cy+$r}]]
-    poly-finish $matrix $frag $fill $stroke ${stroke-width} $ctags
+proc svg::generate::circle {win matrix cx cy r fill stroke stroke-width ctags} {
+    set frag [list $win create oval [expr {$cx-$r}] [expr {$cy-$r}] [expr {$cx+$r}] [expr {$cy+$r}]]
+    poly-finish $win $matrix $frag $fill $stroke ${stroke-width} $ctags
 }
-proc svg::generate::ellipse {matrix cx cy rx ry fill stroke stroke-width ctags} {
-    set frag [list .c create oval [expr {$cx-$rx}] [expr {$cy-$ry}] [expr {$cx+$rx}] [expr {$cy+$ry}]]
-    poly-finish $matrix $frag $fill $stroke ${stroke-width} $ctags
+proc svg::generate::ellipse {win matrix cx cy rx ry fill stroke stroke-width ctags} {
+    set frag [list $win create oval [expr {$cx-$rx}] [expr {$cy-$ry}] [expr {$cx+$rx}] [expr {$cy+$ry}]]
+    poly-finish $win $matrix $frag $fill $stroke ${stroke-width} $ctags
 }
-proc svg::generate::use {matrix pattrs id ctags} {
+proc svg::generate::use {win matrix pattrs id ctags} {
     # puts "use $matrix $id $ctags :: $::svg::defs($id)"
     if {[svg::in-defs $ctags]} {
 	# when in defs section ignore the translation
     } else {
 	# regenerate the code 
 	foreach {indent c m p tag attrs body} $::svg::defs($id) break
-	#if {{justdots} in $c} { 
-	    #puts "svg::generate::use {matrix} {$pattrs} $id {ctags}"
-	    #puts "   retrieved {c} {m} {p} $tag {$attrs} {body}"
-	#}
-	#set matrix [svg::matrix-mul-matrix $matrix $m]
 	set pattrs [concat $p $pattrs]
-	svg::element-traverse-one $indent $c $matrix $pattrs $tag $attrs $body
+	svg::element-traverse-one $win $indent $c $matrix $pattrs $tag $attrs $body
     }
 }
 #
@@ -747,12 +746,12 @@ proc svg::in-defs {tags} {
 # using $indent as an indentation string
 # and $ctags as the inherited canvas tags
 # and $pattrs as the inherited attributes
-proc svg::element-traverse {indent ctags matrix pattrs doc} {
+proc svg::element-traverse {win indent ctags matrix pattrs doc} {
     foreach {tag attrs body} $doc {
-	element-traverse-one $indent $ctags $matrix $pattrs $tag $attrs $body
+	element-traverse-one $win $indent $ctags $matrix $pattrs $tag $attrs $body
     }
 }
-proc svg::element-traverse-one {indent ctags matrix pattrs tag attrs body} {
+proc svg::element-traverse-one {win indent ctags matrix pattrs tag attrs body} {
     #element-setup $tag $attrs $body
     # if {$indent in {{} { } {  }}} { puts stdout "$indent$tag $attrs" }
     if {[ignore-all $tag]} return
@@ -774,63 +773,106 @@ proc svg::element-traverse-one {indent ctags matrix pattrs tag attrs body} {
 	    set ::svg::defsid $a(id)
 	}
 	g {
-	    set matrix [svg::transform-interpret $tag $attrs $matrix]
+	    set matrix [transform-interpret $tag $attrs $matrix]
 	    set pattrs [attr-filter [array get a]]
 	}
 	path {
-	    svg::generate::path $matrix $a(d) $a(fill) $a(stroke) $a(stroke-width) $ctags
+	    generate::path $win $matrix $a(d) $a(fill) $a(stroke) $a(stroke-width) $ctags
 	}
 	polygon {
-	    svg::generate::polygon $matrix $a(points) $a(fill) $a(stroke) $a(stroke-width) $ctags
+	    generate::polygon $win $matrix $a(points) $a(fill) $a(stroke) $a(stroke-width) $ctags
 	}
 	line {
-	    svg::generate::line $matrix $a(x1) $a(y1) $a(x2) $a(y2) $a(fill) $a(stroke) $a(stroke-width) $ctags
+	    generate::line $win $matrix $a(x1) $a(y1) $a(x2) $a(y2) $a(fill) $a(stroke) $a(stroke-width) $ctags
 	}
 	rect {
-	    svg::generate::rect $matrix $a(x) $a(y) $a(width) $a(height) $a(fill) $a(stroke) $a(stroke-width) $ctags
+	    generate::rect $win $matrix $a(x) $a(y) $a(width) $a(height) $a(fill) $a(stroke) $a(stroke-width) $ctags
 	}
 	circle {
-	    svg::generate::circle $matrix $a(cx) $a(cy) $a(r) $a(fill) $a(stroke) $a(stroke-width) $ctags
+	    generate::circle $win $matrix $a(cx) $a(cy) $a(r) $a(fill) $a(stroke) $a(stroke-width) $ctags
 	}
 	ellipse {
-	    svg::generate::ellipse $matrix $a(cx) $a(cy) $a(rx) $a(ry) $a(fill) $a(stroke) $a(stroke-width) $ctags
+	    generate::ellipse $win $matrix $a(cx) $a(cy) $a(rx) $a(ry) $a(fill) $a(stroke) $a(stroke-width) $ctags
 	}
 	use {
 	    # call definition
 	    set x 0; if {[info exists a(x)]} { set x $a(x) }
 	    set y 0; if {[info exists a(y)]} { set y $a(y) }
-	    set matrix [svg::transform-interpret $tag $attrs $matrix]
+	    set matrix [transform-interpret $tag $attrs $matrix]
 	    if {$x != 0 || $y != 0} {
 		set matrix [matrix-mul-matrix $matrix [matrix-from-translate $x $y] ]
 	    }
 	    set id [interesting-target $tag $attrs]
-	    svg::generate::use $matrix [attr-filter [array get a]] $id $ctags
+	    generate::use $win $matrix [attr-filter [array get a]] $id $ctags
 	}
 	default {
 	    puts stderr "missing tag $tag"
 	}
     }
-    foreach item $body { element-traverse "$indent " $ctags $matrix $pattrs $item }
+    foreach item $body { element-traverse $win "$indent " $ctags $matrix $pattrs $item }
 }
-proc main {argv svg} {
-    # get our rendering scale and translation
-    # and the verbose settings
-    foreach {s tx ty v} {1 0 0 0} break
-    switch [llength $argv] {
-	0 {  }
-	1 { foreach {s} $argv break	}
-	2 { foreach {s tx} $argv break }
-	3 { foreach {s tx ty} $argv break }
-	4 { foreach {s tx ty v} $argv break }
-	default {
-	    error {usage svg-stuff [scale [translate-x [translate-y [verbose]]]]}
+proc finish-display {win w h svg png v} {
+    pack $win -fill both -expand true
+    bind $win <1> [list $win scan mark %x %y]
+    bind $win <B1-Motion> [list $win scan dragto %x %y 10]
+    foreach id [$win find all] {
+	$win bind $id <Enter> [list puts "$id {[$win itemcget $id -tags]}"]
+	foreach {x0 y0 x1 y1} [$win bbox $id] break
+	if {$x1-1 > $w || $y1-1 > $h} {
+	    puts "$id @ $x0 $y0 $x1 $y1 tags [$win itemcget $id -tags]"
 	}
     }
-    #set matrix [svg::abcdef-to-matrix [list $s 0 0 $s $tx $ty]]
-    pack [canvas .c -width 2550 -height 400 -background  \#323657] -fill both -expand true
-    bind .c <1> [list .c scan mark %x %y]
-    bind .c <B1-Motion> [list .c scan dragto %x %y 1]
-    svg::element-traverse {} {} [svg::abcdef-to-matrix {1 0 0 1 0 0}] {} [xml2list $svg]
+    finish-image $win $w $h $svg $png $v
+}
+proc finish-image {win w h svg png v} {
+    # hmm, this is only get the visible window image
+    # so I need to display the window, and then I need to
+    # scroll through to get all the tile images, because
+    # even the small images overflow my huge screen.
+    set iw [expr {$w/43}]
+    set jh [expr {$h/2}]
+    puts "$w / 43 == $iw"
+    set img [image create photo]
+    for {set j 0} {$j < 2} {incr j} {
+	set yv [expr {double($j)/double(2)}]
+	$win yview moveto $yv
+	for {set i 0} {$i < 43} {incr i} {
+	    set xv [expr {double($i)/double(43)}]
+	    $win xview moveto $xv
+	    update
+	    set ix [expr {$i*$iw}]
+	    set jy [expr {$j*$jh}]
+	    puts "capturing image $i $j at $xv $yv to $ix $jy" 
+	    $img copy [image create photo -format window -data $win] -to $ix $jy [expr {$ix+$iw}] [expr {$jy+$jh}]
+	}
+    }
+    $img write $png
+}
+proc main {argv} {
+    # get our rendering scale and translation
+    # and the verbose settings
+    # 2752 x 176 is the svg image for 43 tiles
+    # 64 x 88 is the svg tile size at scale 1
+    # 9 coins, n w s e, red, green, 9 bamboos, 9 characters, 4 seasons, white, 4 flowers, blank
+    foreach {w svg png v} {2752 postmodern.svg postmodern.png 0} break
+    switch [llength $argv] {
+	0 {  }
+	1 { foreach {w} $argv break	}
+	2 { foreach {w svg} $argv break }
+	3 { foreach {w svg png} $argv break }
+	4 { foreach {w svg png v} $argv break }
+	default {
+	    error {usage svg-stuff [width [svg-file [png-file [verbose]]]]}
+	}
+    }
+    
+    set s [expr {double($w)/2752}]
+    set h [expr {int(double(176)*$s)}]
+    canvas .svg -background black
+    .svg configure -width [expr {int(64*$s)}] -height [expr {int(88*$s)}] 
+    .svg configure -scrollregion [list 0 0 $w $h]
+
+    svg::element-traverse .svg {} {} [svg::abcdef-to-matrix {1 0 0 1 0 0}] {} [xml2list [read-file $svg]]
     
     foreach record $::immed {
 	foreach {matrix code} $record break
@@ -840,22 +882,23 @@ proc main {argv svg} {
 	set yscale [lindex $abcdef 3]
 	set xmove [lindex $abcdef 4]
 	set ymove [lindex $abcdef 5]
-	.c scale $id 0 0 $xscale $yscale
-	.c move $id $xmove $ymove
-	if {[lsearch [.c itemcget $id -tags] scale-width] >= 0} {
-	    set width [.c itemcget $id -width]
-	    .c itemconfigure $id -width [expr {$xscale*$width}]
-	    # puts "$id [.c itemcget $id -tags] $width -> [expr {$xscale*$width}]"
+	.svg scale $id 0 0 $xscale $yscale
+	.svg move $id $xmove $ymove
+	if {[lsearch [.svg itemcget $id -tags] scale-width] >= 0} {
+	    set width [.svg itemcget $id -width]
+	    .svg itemconfigure $id -width [expr {$xscale*$width}]
+	    # puts "$id [.svg itemcget $id -tags] $width -> [expr {$xscale*$width}]"
 	}
-	#.c bind $id <Enter> [list puts "$id {[.c itemcget $id -tags]}"]
+	#
     }
-    .c scale all 0 0 $s $s
-    .c move all $tx $ty
-    foreach id [.c find withtag scale-width] {
-	set width [.c itemcget $id -width]
-	.c itemconfigure $id -width [expr {$s*$width}]
-	# puts "$id [.c itemcget $id -tags] $width -> [expr {$s*$width}]"
+    .svg scale all 0 0 $s $s
+    foreach id [.svg find withtag scale-width] {
+	set width [.svg itemcget $id -width]
+	.svg itemconfigure $id -width [expr {$s*$width}]
+	#puts "$id [.svg itemcget $id -tags] $width -> [expr {$s*$width}]"
     }
+    # finish-image ...
+    finish-display .svg $w $h $svg $png $v
 }
 
-main $argv [read-file postmodern.svg]
+main $argv
