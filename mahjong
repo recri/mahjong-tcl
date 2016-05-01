@@ -705,7 +705,8 @@ snit::widgetadaptor mahjong::canvas {
 		puts "retrying new game at $options(-game)"
 	    } else {
 		puts "$error\n$::errorInfo"
-		error $error
+		set options(-game) [expr {int(rand()*0x7ffffff)}]
+		puts "retrying new game at $options(-game)"
 	    }
 	}
     }

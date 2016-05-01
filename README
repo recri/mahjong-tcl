@@ -42,12 +42,12 @@ Yet to do:
   path4304, resisted initial attempt to fix it
 [ ] the Red Dragon is filled, path4352
 [ ] center of South is filled, path4308
-[ ] 4's are filled, except in Seasons and Flowers
+[x] 4's are filled, except in Seasons and Flowers
 [ ] two regions filled in Green Dragon, path4360 and path4362
 [x] the 1 of coins is strange
 [x] the 2-9 of coins is all over the place, path3518 dots
 [x] dots and dots2 are the same except for color
-[ ] bams and bams2 are the same except for color  
+[x] bams and bams2 are the same except for color  
 [x] the red character on numbers has four fills that
   are drawn in foreground color in the wrong place.
   now drawn in the right place but still in foreground.

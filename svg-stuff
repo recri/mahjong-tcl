@@ -223,6 +223,7 @@ proc svg::transform-interpret {tag attrs matrix} {
 }
 
 namespace eval svg::path {}
+namespace eval svg::generate {}
 #
 # path d
 # lower case relative, upper case absolute
@@ -446,7 +447,6 @@ proc svg::path-interpret {d} {
     return [svg::path::translate $cmds]
 }
 
-namespace eval svg::generate {}
 #
 # item generators
 # oh, got the defs/use wrong
@@ -901,4 +901,4 @@ proc main {argv} {
     finish-display .svg $w $h $svg $png $v
 }
 
-main $argv
+if {![info exists ::nomain]} { main $argv }
