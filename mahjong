@@ -613,7 +613,11 @@ snit::widgetadaptor mahjong::canvas {
 	    lappend options(-items) $it
 	}
 	
-	$self new-game [clock seconds]
+	if {$options(-game) ne {0}} {
+	    $self new-game [scan-game $options(-game)]
+	} else {
+	    $self new-game [clock seconds]
+	}
     }
     
     method name-to-item {name} { return [dict get $data name-to-item $name] }
@@ -1310,5 +1314,5 @@ set mymap {
 set width 165
 pack [mahjong::canvas .c -background \#323657 \
 	  -layout [mahjong::layout ::layout -map $mymap] \
-	  -tiles [mahjong::tiles ::tiles -svg postmodern.svg -png postmodern-$width.png -width $width] \
+	  -tiles [mahjong::tiles ::tiles -svg postmodern.svg -png postmodern-$width.png -width $width] {*}$argv \
 	 ] -fill both -expand true
