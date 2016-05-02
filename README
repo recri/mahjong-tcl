@@ -18,32 +18,18 @@ Yet to do:
 [x] Loop out the failed deals.
 [x] Prune the unused methods.
 [x] Implement choose game by name.    
-[ ] Get the adaptive framing and sizing to work correctly.
-[ ] Scale images for window size.
-[ ] Make the svg tile set work without inkscape
-[ ] Fix the tiles that don't work in my svg-to-canvas
+[x] Fix the generator so it doesn't fail.
+  This does throw an uncaught exception sometimes, not sure how.
+  Found the uncaught exception.  Tried generating with backtrack,
+  it's faster to reshuffle on first failure, backtracking never
+  succeeded.
+[x] Fix the tiles that don't work in my svg-to-canvas
   because they depend on interior regions in paths being
   transparent to the background.
-[ ] Switch back to using xml layout descriptor
-[ ] Implement hints
-[ ] Implement right/left cursor cycling through hints?
-  This doesn't actually work, though I suppose that
-  if you select a tile, hint might cycle through the
-  matching tiles.  So you could implement a cursor motion
-  key mode which cycled through the selectable tiles, used
-  <return> to select and then cycled through the selectable 
-  matches, and finally used <return> to select the play, or
-  used <backspace> to cancel the first selection.
-[ ] Fix the generator so it doesn't fail.
-  This does throw an uncaught exception sometimes, not sure how.
-[ ] Implement Help.
-[ ] Implement Save/Restore game.
-[ ] there is a white streak in the upper swash of the West character
-  path4304, resisted initial attempt to fix it
-[ ] the Red Dragon is filled, path4352
-[ ] center of South is filled, path4308
+[x] the Red Dragon is filled, path4352
+[s] center of South is filled, path4308
 [x] 4's are filled, except in Seasons and Flowers
-[ ] two regions filled in Green Dragon, path4360 and path4362
+[s] two regions filled in Green Dragon, path4360 and path4362
 [x] the 1 of coins is strange
 [x] the 2-9 of coins is all over the place, path3518 dots
 [x] dots and dots2 are the same except for color
@@ -54,5 +40,27 @@ Yet to do:
   I think they're inside out polygons.
 [x] multipart paths were not retaining the end of the last
   part to the beginning of the next path.
-[ ] the coins fade at reduced scale
-[ ] the bams internal whites are not shown
+[x] the bams internal whites are not shown
+[ ] redo the red dragon, it looks lumpy
+[ ] Get the adaptive framing and sizing to work correctly.
+[ ] Scale images for window size.
+[ ] Make the svg tile set work without inkscape
+[ ] Switch back to using xml layout descriptor
+[ ] Implement hints
+[ ] Implement pause/continue
+[ ] Implement preferences
+[ ] Implement save/restore
+[ ] Implement scores
+[ ] Implement Help.
+[ ] Implement right/left cursor cycling through hints?
+  This doesn't actually work, though I suppose that
+  if you select a tile, hint might cycle through the
+  matching tiles.  So you could implement a cursor motion
+  key mode which cycled through the selectable tiles, used
+  <return> to select and then cycled through the selectable 
+  matches, and finally used <return> to select the play, or
+  used <backspace> to cancel the first selection.
+[ ] there is a white streak in the upper swash of the West character
+  path4304, resisted initial attempt to fix it
+[ ] the coins fade at reduced scale, need width boosting
+[ ] Fixe the tilted bams, they are still solid

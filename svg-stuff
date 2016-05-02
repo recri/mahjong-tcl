@@ -899,6 +899,7 @@ proc main {argv} {
     }
     # finish-image ...
     finish-display .svg $w $h $svg $png $v
+    exit
 }
 
 if {![info exists ::nomain]} { main $argv }
