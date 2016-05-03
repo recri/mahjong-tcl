@@ -1470,6 +1470,7 @@ snit::widgetadaptor mahjong::canvas {
     method menu-build {} {
 	# popup menu
 	menu .m -tearoff no
+	set accel {}
 	foreach entry {
 	    {command n {New Game} new-game}
 	    {command o {Restart} restart-game}
@@ -1483,7 +1484,7 @@ snit::widgetadaptor mahjong::canvas {
 	    {separator}
 	    {hint m {Menu} menu-menu}
 	    {command s {Scores} scores}
-	    {command p {Preferences} preferences}
+	    {command f {Preferences} preferences}
 	    {command j {Help} help}
 	    {separator}
 	    {command b {By Name} by-name}
@@ -1491,6 +1492,7 @@ snit::widgetadaptor mahjong::canvas {
 	    {command q {Quit} quit}
 	} {
 	    foreach {entry accelerator label meth var} $entry break
+	    if {[lsearch $accel $accelerator] >= 0} { error "duplicate accelerator $accelerator" }
 	    switch $entry {
 		separator {
 		    .m add separator
@@ -1524,6 +1526,7 @@ snit::widgetadaptor mahjong::canvas {
     }
     # protect an accelerator from calling the entry function when disabled
     method menu-protect {label meth} {
+	# puts "$self menu-protect $label $meth"
 	if {[.m entrycget $label -state] eq {normal}} {
 	    $self $meth
 	}
@@ -1548,14 +1551,14 @@ snit::widgetadaptor mahjong::canvas {
     }
     method restart-game {} { $self restart }
     method pause-game {} {
+	$self clear-selected
 	dict set data paused true
-	# foreach name [$self get-tiles] { $win itemconfigure $item -image [$self normal-image [$self blank-image]] }
+	foreach tile [$self get-remaining-tiles] { $self show [$self get-name $tile] $tile blank }
 	$self menu-enable-disable {{Continue}} {{New Game} {Restart} {Pause} {Hint} {Undo} {Redo} {Scores} {Preferences} {Help}}
-	# turn off selection?
     }
     method continue-game {} {
 	$self menu-enable-disable {{New Game} {Restart} {Pause} {Hint} {Undo} {Redo} {Scores} {Preferences}} {{Continue}}
-	# foreach item  [$self get-items] { $win itemconfigure $item -image [$self normal-image $item] }
+	foreach tile [$self get-remaining-tiles] { $self show [$self get-name $tile] $tile plain }
 	dict set data paused false
     }
     method hint {} {
@@ -1780,16 +1783,11 @@ snit::widgetadaptor mahjong::canvas {
 	}
     }
     
-    ##
-    ## these change whether we're unplaying or playing
-    ##
     method move-undo {name1 slot1 name2 slot2} {
-	# puts "move-undo $name1 $slot1 $name2 $slot2"
 	$self tile-place $slot1 $name1
 	$self tile-place $slot2 $name2
     }
     method move-redo {name1 slot1 name2 slot2} {
-	# puts "move-redo $name1 $slot1 $name2 $slot2"
 	$self tile-unplace $slot1 $name1
 	$self tile-unplace $slot2 $name2
     }
@@ -1963,10 +1961,22 @@ snit::widgetadaptor mahjong::canvas {
     method show {slot name tag} {
 	foreach id [$win find withtag $name] {
 	    set tags [$win itemcget $id -tags]
-	    if {[lsearch $tags $tag] >= 0 || [lsearch $tags face] >= 0} {
-		$win itemconfigure $id -state normal
-	    } else {
-		$win itemconfigure $id -state hidden
+	    switch $tag {
+		plain -
+		selected {
+		    if {[lsearch $tags $tag] >= 0 || [lsearch $tags face] >= 0} {
+			$win itemconfigure $id -state normal
+		    } else {
+			$win itemconfigure $id -state hidden
+		    }
+		}
+		blank {
+		    if {[lsearch $tags plain] >= 0} {
+			$win itemconfigure $id -state normal
+		    } else {
+			$win itemconfigure $id -state hidden
+		    }
+		}
 	    }
 	}
     }
@@ -2016,6 +2026,7 @@ snit::widgetadaptor mahjong::canvas {
     method leave {slot name} { $win bind $name <Button-1> {} }
     
     method button {slot1 name1} {
+	if {[dict get $data paused]} return
 	# if the tile is playable
 	if {[$self can-play $slot1]} {
 	    # if there's an already selected tile

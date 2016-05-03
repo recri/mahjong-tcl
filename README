@@ -47,7 +47,7 @@ Yet to do:
 [x] Make the svg tile set work without inkscape
 [ ] Switch back to using xml layout descriptor
 [x] Implement hints
-[ ] Implement pause/continue
+[x] Implement pause/continue
 [ ] Implement preferences
 [ ] Implement save/restore
 [ ] Implement scores
@@ -61,7 +61,7 @@ Yet to do:
   matches, and finally used <return> to select the play, or
   used <backspace> to cancel the first selection.
 [ ] there is a white streak in the upper swash of the West character
-  path4304, resisted initial attempt to fix it
+  path4304, resisted attempts to fix it
 [ ] the coins fade at reduced scale, need width boosting
 [ ] Fix the tilted bams, they are still solid
 [ ] Canvas based imaging is too slow, need to cache the images
