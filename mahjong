@@ -1331,7 +1331,7 @@ snit::type mahjong::tiles {
 	north-wind west-wind south-wind east-wind red-dragon green-dragon
 	one-character two-character three-character four-character five-character six-character seven-character eight-character nine-character 
 	one-bamboo two-bamboo three-bamboo four-bamboo five-bamboo six-bamboo seven-bamboo eight-bamboo nine-bamboo 
-	season-1 season-2 season-3 season-4 white-dragon flower-1 flower-2 flower-3 flower-4 plain-tile
+	season-1 season-2 season-3 season-4 white-dragon flower-1 flower-2 flower-3 flower-4 {}
     }
     option -pieces -readonly true
     option -normal -readonly true
@@ -1444,11 +1444,19 @@ snit::widgetadaptor mahjong::canvas {
 	
 	# foreach name [$self get-tiles] { }
 	
-	$self new-game [clock seconds]
+	if {$options(-game) ne {0}} {
+	    $self new-game [scan-game $options(-game)]
+	} else {
+	    $self new-game [clock seconds]
+	}
     }
     
     method set-name {name slot} { dict set data name-to-slot $name $slot }
     method get-name {name} { return [dict get $data name-to-slot $name] }
+
+    method get-remaining-tiles {} {
+	return [lmap name [$self get-tiles] {expr {[$self get-name $name] ne {}?$name:[continue]}}]
+    }
 
     # context menu, button 3 or 2 on the background
     # with single character accelerators on the root window
@@ -1829,7 +1837,7 @@ snit::widgetadaptor mahjong::canvas {
 
 	    # put the first tile in its slot
 	    $self place-tile $slot1 $name1 0
-	    
+	    lappend moves $name1 $slot1
 	    # take next open slot in slot list
 	    # but avoid slots that block $slot1
 	    set slot2 [$self find-can-unplay $slots $slot1]
@@ -1840,15 +1848,7 @@ snit::widgetadaptor mahjong::canvas {
 	    $self place-tile $slot2 $name2 0
 	    
 	    # make backwards history
-	    lappend moves $name1 $slot1 $name2 $slot2
-	}
-	if {0} {
-	    foreach {name1 slot1 name2 slot2} $moves {
-		$self place-tile $slot1 $name1
-		$self place-tile $slot2 $name2
-	    }
-	    puts "failed with [expr {[llength $moves]/2}] moves recorded"
-	    return
+	    lappend moves $name2 $slot2
 	}
 	# make the history of the play
 	$self history-empty
@@ -1900,7 +1900,7 @@ snit::widgetadaptor mahjong::canvas {
 	$self adjust-window
 	
 	# compute
-	set options(-remaining-tiles) [llength [$self get-names]]
+	set options(-remaining-tiles) [llength [$self get-remaining-tiles]]
 	set options(-remaining-moves) [$self count-moves]
     }
     
@@ -2125,5 +2125,5 @@ set mymap {
 set width 165
 pack [mahjong::canvas .c -background \#323657 \
 	  -layout [mahjong::layout ::layout -map $mymap] \
-	  -tiles [mahjong::tiles ::tiles -svg postmodern.svg -width $width] \
+	  -tiles [mahjong::tiles ::tiles -svg postmodern.svg -width $width] {*}$argv \
 	 ] -fill both -expand true
