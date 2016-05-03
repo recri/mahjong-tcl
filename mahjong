@@ -1470,8 +1470,8 @@ snit::widgetadaptor mahjong::canvas {
     method menu-build {} {
 	# popup menu
 	menu .m -tearoff no
-	set accel {}
-	foreach entry {
+	set accels {}
+	foreach record {
 	    {command n {New Game} new-game}
 	    {command o {Restart} restart-game}
 	    {separator}
@@ -1485,29 +1485,33 @@ snit::widgetadaptor mahjong::canvas {
 	    {hint m {Menu} menu-menu}
 	    {command s {Scores} scores}
 	    {command f {Preferences} preferences}
-	    {command j {Help} help}
+	    {command ? {Help} help}
 	    {separator}
 	    {command b {By Name} by-name}
 	    {separator}
 	    {command q {Quit} quit}
 	} {
-	    foreach {entry accelerator label meth var} $entry break
-	    if {[lsearch $accel $accelerator] >= 0} { error "duplicate accelerator $accelerator" }
+	    foreach {entry accelerator label meth var} $record break
+	    if {$record ne {separator}} {
+		if {[lsearch -exact $accels $accelerator] >= 0} { error "duplicate accelerator for $record" }
+		lappend accels $accelerator
+	    }
 	    switch $entry {
 		separator {
 		    .m add separator
 		}
 		command {
 		    .m add command -accelerator $accelerator -label $label -command [mymethod $meth]
-		    bind . <$accelerator> [list {*}[mymethod menu-protect] $label $meth]
+		    if {$accelerator eq {?}} { set accelerator question }
+		    bind . <KeyPress-$accelerator> [list {*}[mymethod menu-protect] $label $meth]
 		}
 		checkbutton {
 		    .m add checkbutton -accelerator $accelerator -label $label -variable [myvar $var]
-		    bind . <$accelerator> [list {*}[mymethod menu-protect] $label $meth]
+		    bind . <KeyPress-$accelerator> [list {*}[mymethod menu-protect] $label $meth]
 		}
 		hint {
 		    .m add command -accelerator $accelerator -label $label
-		    bind . <$accelerator> [mymethod $meth]
+		    bind . <KeyPress-$accelerator> [mymethod $meth]
 		}
 		default {
 		    error "unexpected menu entry command $entry"
@@ -1576,6 +1580,7 @@ snit::widgetadaptor mahjong::canvas {
     
     method scores {} {}
     method preferences {} {}
+    method help {} { puts "help called" }
     method by-name {} {
 	toplevel .b
 	wm title .b {By Name}

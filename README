@@ -67,3 +67,4 @@ Yet to do:
 [ ] Canvas based imaging is too slow, need to cache the images
   as they become available.
 [ ] Rewrite wish for khronos graphics
+[ ] Popup a game over dialog when all plays have been made.
