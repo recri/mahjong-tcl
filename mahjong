@@ -1971,6 +1971,8 @@ snit::widgetadaptor mahjong::canvas {
 	$self set-name $name $slot
 	if {$draw} {
 	    $self draw $name $slot plain
+	    $win bind $name <Enter> [list {*}[mymethod enter] $name]
+	    $win bind $name <Leave> [list {*}[mymethod leave] $name]
 	    $self raise-in-render-order
 	}
     }
@@ -2022,7 +2024,7 @@ snit::widgetadaptor mahjong::canvas {
 		    # start counting time
 		    $self start-timer
 		    # remove the tiles from play
-		    $self move-redo $name1 $xyz1 $name22 $xyz2
+		    $self move-redo $name1 $xyz1 $name2 $xyz2
 		    # keep history
 		    $self history-add $name1 $xyz1 $name2 $xyz2
 		    # keep score
