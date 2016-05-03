@@ -1486,7 +1486,6 @@ snit::widgetadaptor mahjong::canvas {
 	    {command p {Preferences} preferences}
 	    {command j {Help} help}
 	    {separator}
-	    {command d {Debug} debug}
 	    {command b {By Name} by-name}
 	    {separator}
 	    {command q {Quit} quit}
@@ -1559,7 +1558,14 @@ snit::widgetadaptor mahjong::canvas {
 	# foreach item  [$self get-items] { $win itemconfigure $item -image [$self normal-image $item] }
 	dict set data paused false
     }
-    method hint {} {}
+    method hint {} {
+	set slots [concat {*}[$self find-moves]]
+	if {$slots ne {}} {
+	    dict incr data hint
+	    set slot [lindex $slots [expr {[dict get $data hint]%[llength $slots]}]]
+	    $self set-selected $slot [$self get-slot $slot]
+	}
+    }
     method undo {} { $self history-undo }
     method redo {} { $self history-redo }
     
@@ -1567,7 +1573,6 @@ snit::widgetadaptor mahjong::canvas {
     
     method scores {} {}
     method preferences {} {}
-    method debug {} { $self history-restore $options(-deal-history) }
     method by-name {} {
 	toplevel .b
 	wm title .b {By Name}
@@ -1810,6 +1815,10 @@ snit::widgetadaptor mahjong::canvas {
     ## start or restart the currently setup game
     ##
     method restart {} {
+	# reset timer
+	set options(-start-timer) 0
+	# clear selection
+	$self clear-selected
 	# empty slots
 	foreach slot [$self get-slots] { 
 	    set name [$self get-slot $slot]
@@ -1820,12 +1829,6 @@ snit::widgetadaptor mahjong::canvas {
 	}
 	# reset images
 	foreach name [$self get-tiles] { $self set-name $name {} }
-	# clear selection
-	$self clear-selected
-	# empty history
-	$self history-empty
-	# reset timer
-	set options(-start-timer) 0
 	
 	# pick matching pairs from available
 	set names $options(-shuffled-tiles)
@@ -1870,16 +1873,14 @@ snit::widgetadaptor mahjong::canvas {
 	    }
 	}
 
-	# make the history of the play
+	# make and save the history of the play
+	# this allows the construction of the deal to be played in reverse
+	# at the start of each game by redoing moves
 	$self history-empty
 	foreach {name1 slot1 name2 slot2} $moves {
 	    $self history-add $name1 $slot1 $name2 $slot2
 	}
-
-	# save the list of moves that needed to get done
-	set options(-deal-history) [$self history-save-reversed]
-	$self history-empty
-	$self history-restore $options(-deal-history)
+	$self history-restore [$self history-save-reversed]
 	
 	# raise slots in render order
 	$self raise-in-render-order

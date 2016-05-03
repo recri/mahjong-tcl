@@ -41,17 +41,17 @@ Yet to do:
 [x] multipart paths were not retaining the end of the last
   part to the beginning of the next path.
 [x] the bams internal whites are not shown
-[ ] redo the red dragon, it looks lumpy
+[x] redo the red dragon, it looks lumpy
 [ ] Get the adaptive framing and sizing to work correctly.
 [ ] Scale images for window size.
-[ ] Make the svg tile set work without inkscape
+[x] Make the svg tile set work without inkscape
 [ ] Switch back to using xml layout descriptor
-[ ] Implement hints
+[x] Implement hints
 [ ] Implement pause/continue
 [ ] Implement preferences
 [ ] Implement save/restore
 [ ] Implement scores
-[ ] Implement Help.
+[ ] Implement help.
 [ ] Implement right/left cursor cycling through hints?
   This doesn't actually work, though I suppose that
   if you select a tile, hint might cycle through the
@@ -63,4 +63,7 @@ Yet to do:
 [ ] there is a white streak in the upper swash of the West character
   path4304, resisted initial attempt to fix it
 [ ] the coins fade at reduced scale, need width boosting
-[ ] Fixe the tilted bams, they are still solid
+[ ] Fix the tilted bams, they are still solid
+[ ] Canvas based imaging is too slow, need to cache the images
+  as they become available.
+[ ] Rewrite wish for khronos graphics
