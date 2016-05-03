@@ -68,6 +68,11 @@ package require Tcl
 package require Tk
 package require snit
 
+set ::usetkpath 0
+if {$::usetkpath} {
+    package require tkpath
+}
+
 snit::type mahjong::layout {
     option -verbose -default 1
     option -map -default {} -configuremethod Configure
@@ -1379,12 +1384,10 @@ snit::type mahjong::tiles {
     # match tests if the first tile matches the second tile
     method match {name1 name2} { return [expr {[dict get $map $name1 match] eq [dict get $map $name2 match]}] }
     # draw a tile
-    method draw {window tile x y s tag} {
-	#puts "$self draw $window $tile $x $y $s $tag"
-	#puts "$svg draw $window $tag-tile $x $y $s $s [list $tile $tag tile]"
-	#puts "$svg draw $window [dict get $map $tile name] $x $y $s $s [list $tile $tag face]"
-	$svg draw $window $tag-tile $x $y $s $s [list $tile $tag tile]
-	$svg draw $window [dict get $map $tile name] $x $y $s $s [list $tile $tag face]
+    method draw {window tile x y s} {
+	$svg draw $window selected-tile $x $y $s $s [list $tile selected]
+	$svg draw $window plain-tile $x $y $s $s [list $tile plain]
+	$svg draw $window [dict get $map $tile name] $x $y $s $s [list $tile face]
     }
 }
 
@@ -1429,7 +1432,11 @@ snit::widgetadaptor mahjong::canvas {
     variable data [dict create selected {}]
     
     constructor {args} {
-	installhull using ::canvas
+	if {$::usetkpath} {
+	    installhull using ::tkp::canvas
+	} else {
+	    installhull using ::canvas
+	}
 	bind $win <Configure> [mymethod adjust-window]
 	bind $win <Button-3> [list {*}[mymethod menu-popup] %W %x %y]
 	$self configure {*}$args
@@ -1707,7 +1714,7 @@ snit::widgetadaptor mahjong::canvas {
 	    $self menu-enable-disable {} {Undo Redo}
 	}
     }
-    method history-save {} {
+    method history-save-reversed {} {
 	dict with data history {
 	    return [dict create count 0 future $future items [lreverse $items]]
 	}
@@ -1773,13 +1780,13 @@ snit::widgetadaptor mahjong::canvas {
     ##
     method move-undo {name1 slot1 name2 slot2} {
 	# puts "move-undo $name1 $slot1 $name2 $slot2"
-	$self place-tile $slot1 $name1
-	$self place-tile $slot2 $name2
+	$self tile-place $slot1 $name1
+	$self tile-place $slot2 $name2
     }
     method move-redo {name1 slot1 name2 slot2} {
 	# puts "move-redo $name1 $slot1 $name2 $slot2"
-	$self unplace-tile $slot1 $name1
-	$self unplace-tile $slot2 $name2
+	$self tile-unplace $slot1 $name1
+	$self tile-unplace $slot2 $name2
     }
     
     ##
@@ -1804,12 +1811,15 @@ snit::widgetadaptor mahjong::canvas {
     ##
     method restart {} {
 	# empty slots
-	foreach slot [$self get-slots] { $self set-empty $slot }
-	# reset images
-	foreach name [$self get-tiles] { 
-	    $self set-name $name {}
-	    $win delete $name
+	foreach slot [$self get-slots] { 
+	    set name [$self get-slot $slot]
+	    if {$name ne {}} {
+		$self tile-unplace $slot $name
+	    }
+	    $self set-empty $slot 
 	}
+	# reset images
+	foreach name [$self get-tiles] { $self set-name $name {} }
 	# clear selection
 	$self clear-selected
 	# empty history
@@ -1836,7 +1846,7 @@ snit::widgetadaptor mahjong::canvas {
 	    set slots [lreplace $slots $s1 $s1]
 
 	    # put the first tile in its slot
-	    $self place-tile $slot1 $name1 0
+	    $self tile-place $slot1 $name1
 	    lappend moves $name1 $slot1
 	    # take next open slot in slot list
 	    # but avoid slots that block $slot1
@@ -1845,54 +1855,32 @@ snit::widgetadaptor mahjong::canvas {
 	    set slots [lreplace $slots $s2 $s2]
 	    
 	    # put the second tile in its slot
-	    $self place-tile $slot2 $name2 0
+	    $self tile-place $slot2 $name2
 	    
 	    # make backwards history
 	    lappend moves $name2 $slot2
+	    
+	    # test for forward playability
+	    if { ! [$self can-play $slot1]} {
+		error "proposed move slot1 $slot1 cannot play"
+	    } elseif { ! [$self can-play $slot2]} {
+		error "proposed move slot2 $slot2 cannot play"
+	    } elseif { ! [$self match $name1 $name2]} {
+		error "proposed move mismatches $nm1 and $nm2"
+	    }
 	}
+
 	# make the history of the play
 	$self history-empty
 	foreach {name1 slot1 name2 slot2} $moves {
 	    $self history-add $name1 $slot1 $name2 $slot2
 	}
+
 	# save the list of moves that needed to get done
-	set options(-deal-history) [$self history-save]
+	set options(-deal-history) [$self history-save-reversed]
 	$self history-empty
+	$self history-restore $options(-deal-history)
 	
-	# run through history in play order
-	# verify that each proposed unplay move
-	# is infact a legal move
-	foreach move [dict get $options(-deal-history) items] {
-	    foreach {name1 slot1 name2 slot2} $move break
-	    if { ! [$self can-play $slot1]} {
-		puts "proposed move slot1 $slot1 cannot play"
-		break
-	    } elseif { ! [$self can-play $slot2]} {
-		puts "proposed move slot2 $slot2 cannot play"
-		break
-	    } elseif { ! [$self match $name1 $name2]} {
-		puts "proposed move mismatches $nm1 and $nm2"
-		break
-	    } else {
-		# remove the tiles from play
-		$self move-redo $name1 $slot1 $name2 $slot2
-		# keep history
-		$self history-add $name1 $slot1 $name2 $slot2
-	    }
-	}
-	# if we went all the way through
-	if {[$self history-get-count] == 72} {
-	    # then undo everything
-	    while {[$self history-get-count] > 0} {
-		$self history-undo
-	    }
-	} else {
-	    # highlight the problem
-	    puts "$name1 {$slot1} and $name2 {$slot2} at move [$self history-get-count]"
-	    $self draw $name1 $slot1 selected
-	    $self draw $name2 $slot2 selected
-	    update
-	}
 	# raise slots in render order
 	$self raise-in-render-order
 	
@@ -1950,9 +1938,10 @@ snit::widgetadaptor mahjong::canvas {
 	    expr {[$self can-play $slot] ? $slot : [continue]}
 	}]
     }
-    
-    method draw {name slot tag} {
-	$win delete $name
+    ##
+    ##
+    ##
+    method draw {slot name} {
 	set twid [$self cget -width];   # tile width
 	set thgt [$self cget -height];  # tile height
 	set xstep [expr {$twid/10.0}];  # offset for 3d border
@@ -1962,81 +1951,100 @@ snit::widgetadaptor mahjong::canvas {
 	foreach {x y z} $slot break;	# slot
 	set x [expr {(3.5+$x)*$fwid + $z*$xstep}]
 	set y [expr {(0.5+$y)*$fhgt - $z*$ystep}]
-	$tiles draw $win $name $x $y [expr {$twid/64.0}] $tag
+	if {[$win find withtag $name] eq {}} {
+	    $tiles draw $win $name $x $y [expr {$twid/64.0}]
+	} else {
+	    foreach {ox oy} [dict get $data coords $name] break
+	    $win move $name [expr {$x-$ox}] [expr {$y-$oy}]
+	}
+	dict set data coords $name [list $x $y]
     }
-
-    method place-tile {slot name {draw 1}} {
-	#puts "$self place-tile $slot $name $draw"
-	$self set-slot $slot $name
-	$self set-name $name $slot
-	if {$draw} {
-	    $self draw $name $slot plain
-	    $win bind $name <Enter> [list {*}[mymethod enter] $name]
-	    $win bind $name <Leave> [list {*}[mymethod leave] $name]
-	    $self raise-in-render-order
+    method show {slot name tag} {
+	foreach id [$win find withtag $name] {
+	    set tags [$win itemcget $id -tags]
+	    if {[lsearch $tags $tag] >= 0 || [lsearch $tags face] >= 0} {
+		$win itemconfigure $id -state normal
+	    } else {
+		$win itemconfigure $id -state hidden
+	    }
 	}
     }
-    
-    method unplace-tile {slot name} {
- 	dict set data item-to-slot $name {}
-	$self set-empty $slot
- 	$win delete $name
+    method hide {slot name} {
+ 	$win itemconfigure $name -state hidden
+    }
+    ##
+    ##
+    ##
+    method tile-place {slot name} {
+	#puts "$self tile-place $slot $name $draw"
+	$self set-slot $slot $name
+	$self set-name $name $slot
+	$self draw $slot $name
+	$self show $slot $name plain
+	$win bind $name <Enter> [list {*}[mymethod enter] $slot $name]
+	$win bind $name <Leave> [list {*}[mymethod leave] $slot $name]
+	$self raise-in-render-order
     }
     
+    method tile-unplace {slot name} {
+ 	$self set-name $name {}
+	$self set-empty $slot
+	$self hide $slot $name
+    }
+    method tile-is-placed {slot name} {
+	return [expr {[$self get-slot $slot] eq $name}]
+    }
     ##
     ## tile mouse event handlers
     ## mostly concerned with selected tile management
-    ## set-selected {name slot}
+    ## set-selected {slot name}
     ##
     method get-selected {} { return [dict get $data selected] }
     method is-selected {} { return [expr {[$self get-selected] ne {}}] }
-    
     method clear-selected {} {
-	if {[$self is-selected]} { $self draw {*}[$self get-selected] plain }
+	if {[$self is-selected]} { $self show {*}[$self get-selected] plain }
 	dict set data selected {}
     }
     method set-selected {args} { 
 	$self clear-selected
-	if {$args ne {}} { $self draw {*}$args selected	}
+	if {$args ne {}} { $self show {*}$args selected	}
 	dict set data selected $args
     }
     
-    method enter {name} { $win bind $name <Button-1> [list {*}[mymethod button] $name] }
-    method leave {name} { $win bind $name <Button-1> {} }
+    method enter {slot name} { $win bind $name <Button-1> [list {*}[mymethod button] $slot $name] }
+    method leave {slot name} { $win bind $name <Button-1> {} }
     
-    method button {name1} {
+    method button {slot1 name1} {
 	# if the tile is playable
-	set xyz1 [$self get-name $name1]
-	if {[$self can-play $xyz1]} {
+	if {[$self can-play $slot1]} {
 	    # if there's an already selected tile
 	    if {[$self is-selected]} {
 		# get the selected tile and clear the selection
-		foreach {name2 xyz2} [$self get-selected] break
+		foreach {slot2 name2} [$self get-selected] break
 		$self clear-selected
-		# if it's the same tile
 		if {$name1 eq $name2} {
+		    # if it's the same tile
 		    # just return, we've cancelled the selection
 		    # and undone the selected image
-		    return;
-		}
-		# if it's a match to the previously selected tile
-		if {[$self match $name1 $name2]} {
+		} elseif {[$self match $name1 $name2]} {
+		    # if it's a match to the previously selected tile
 		    # start counting time
 		    $self start-timer
 		    # remove the tiles from play
-		    $self move-redo $name1 $xyz1 $name2 $xyz2
+		    $self move-redo $name1 $slot1 $name2 $slot2
 		    # keep history
-		    $self history-add $name1 $xyz1 $name2 $xyz2
+		    $self history-add $name1 $slot1 $name2 $slot2
 		    # keep score
 		    after 0 [list {*}[mymethod update-score]]
-		    return
+		} else {
+		    # select the new tile in place of the old one
+		    $self set-selected $slot1 $name1
 		}
-		# select the new tile in place of the old one
-		$self set-selected $name1 $xyz1
 	    } else {
 		# just select the new tile
-		$self set-selected $name1 $xyz1
+		$self set-selected $slot1 $name1
 	    }
+	    $self raise-in-render-order
 	}
     }
 }
@@ -2124,6 +2132,7 @@ set mymap {
 # with the layout and 
 # the tile images for the game
 # this is a tile width that works at 2560x1700 
+
 set width 165
 pack [mahjong::canvas .c -background \#323657 \
 	  -layout [mahjong::layout ::layout -map $mymap] \
