@@ -807,7 +807,7 @@ snit::type mahjong::svg {
 	    } elseif {$c in {0 1 2 3 4 5 6 7 8 9 .}} { # part of a number
 		if { ! [string is double $num$c]} { lappend nums $num; set num {} }
 		append num $c
-	    } elseif {$c in {, { }}} { # comma or space, separator
+	    } elseif {[string first $c ", \t\n"] >= 0} { # comma or space or newline, separator
 		if {$num ne {}} { lappend nums $num }
 		set num {}
 	    } else {
@@ -928,23 +928,37 @@ snit::type mahjong::svg {
 	}
 	return $results
     }
-    proc path-translate-mc {xname yname cmd m c} {
+    proc path-translate-xy {xname yname cmd m c} {
 	upvar $xname x
 	upvar $yname y
-	foreach {dx dy} [lrange $m 1 end] break
-	set x [expr {$x+$dx}]
-	set y [expr {$y+$dy}]
-	lappend cmd $x $y
-	foreach {dc1x dc1y dc2x dc2y dx dy} [lrange $c 1 end] {
-	    set c1x [expr {$x+$dc1x}]
-	    set c1y [expr {$y+$dc1y}]
-	    set c2x [expr {$x+$dc2x}]
-	    set c2y [expr {$y+$dc2y}]
-	    set nx [expr {$x+$dx}]
-	    set ny [expr {$y+$dy}]
-	    lappend cmd $c1x $c1y $c2x $c2y $nx $ny
-	    set x $nx
-	    set y $ny
+	switch $cmd {
+	    mc - mcz {
+		foreach {dx dy} [lrange $m 1 end] break
+		set x [expr {$x+$dx}]
+		set y [expr {$y+$dy}]
+		lappend cmd $x $y
+		foreach {dc1x dc1y dc2x dc2y dx dy} [lrange $c 1 end] {
+		    set c1x [expr {$x+$dc1x}]
+		    set c1y [expr {$y+$dc1y}]
+		    set c2x [expr {$x+$dc2x}]
+		    set c2y [expr {$y+$dc2y}]
+		    set nx [expr {$x+$dx}]
+		    set ny [expr {$y+$dy}]
+		    lappend cmd $c1x $c1y $c2x $c2y $nx $ny
+		    set x $nx
+		    set y $ny
+		}
+	    }
+	    ML {
+		foreach {x y} [lrange $m 1 end] break
+		lappend cmd $x $y
+		foreach {x y} [lrange $c 1 end] {
+		    lappend cmd $x $y
+		}
+	    }
+	    default {
+		error "unknown cmd {$cmd} in path-translate-xy"
+	    }
 	}
 	return $cmd
     }
@@ -961,12 +975,17 @@ snit::type mahjong::svg {
 	while {[llength $results] > 0} {
 	    switch -glob $type {
 		mcz* {
-		    lappend cmds [path-translate-mc x y {mcz} [lindex $results 0] [lindex $results 1]]
+		    lappend cmds [path-translate-xy x y {mcz} [lindex $results 0] [lindex $results 1]]
 		    set results [lrange $results 3 end]
 		    set type [string range $type 3 end]
 		}
 		mc* {
-		    lappend cmds [path-translate-mc x y {mc} [lindex $results 0] [lindex $results 1]]
+		    lappend cmds [path-translate-xy x y {mc} [lindex $results 0] [lindex $results 1]]
+		    set results [lrange $results 2 end]
+		    set type [string range $type 2 end]
+		}
+		ML* {
+		    lappend cmds [path-translate-xy x y {ML} [lindex $results 0] [lindex $results 1]]
 		    set results [lrange $results 2 end]
 		    set type [string range $type 2 end]
 		}
@@ -1026,6 +1045,7 @@ snit::type mahjong::svg {
 	    switch $op {
 		mcz { $self generate-poly-finish $window $matrix [list $window create polygon {*}$coords -smooth raw] $fill $stroke ${stroke-width} $ctags }
 		mc { $self generate-line-finish $window $matrix [list $window create line {*}$coords -smooth raw] $fill $stroke ${stroke-width} $ctags }
+		ML { $self generate-line-finish $window $matrix [list $window create line {*}$coords] $fill $stroke ${stroke-width} $ctags }
 		default { error "unknown op $op" }
 	    }
 	}

@@ -46,7 +46,7 @@ Yet to do:
 [x] Make the svg tile set work without inkscape
 [x] Implement hints
 [x] Implement pause/continue
-[ ] Figure out why the seasons and flowers are blanks
+[x] Figure out why the seasons and flowers are blanks
 [ ] Get the adaptive framing and sizing to work correctly.
 [ ] Scale images for window size.
 [ ] Switch back to using xml layout descriptor
@@ -66,6 +66,6 @@ Yet to do:
   path4304, resisted attempts to fix it
 [ ] the coins fade at reduced scale, need width boosting
 [ ] Canvas based imaging is too slow, need to cache the images
-  as they become available.
+  as they become available, or maybe I redraw and erase them too often?
 [ ] Popup a game over dialog when all plays have been made.
 [ ] Rewrite wish for khronos graphics
