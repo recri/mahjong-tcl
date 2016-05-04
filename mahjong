@@ -530,7 +530,8 @@ snit::type mahjong::layout {
 #
 # translate a subset of svg into canvas graphics
 # make the <defs></defs> in an svg file available
-# for rendering as canvas items
+# for rendering as canvas items, and cache the
+# translation
 #
 snit::type mahjong::svg {
     option -file -default {} -readonly true
@@ -1375,8 +1376,9 @@ snit::type mahjong::svg {
     method defs {{pattern *}} {
 	return [array names defs $pattern]
     }
-    method draw-immed {window} {
-	foreach record $immed {
+    variable cache -array {}
+    method draw-cache {window svgid ctags} {
+	foreach record $cache($svgid) {
 	    foreach {matrix code} $record break
 	    set abcdef [matrix-to-abcdef $matrix]
 	    set cid [{*}$code]
@@ -1387,6 +1389,7 @@ snit::type mahjong::svg {
 	    set ymove [lindex $abcdef 5]
 	    $window scale $cid 0 0 $xscale $yscale
 	    $window move $cid $xmove $ymove
+	    foreach t $ctags { $window addtag $t withtag $cid }
 	    if {[lsearch [$window itemcget $cid -tags] scale-width] >= 0} {
 		set width [$window itemcget $cid -width]
 		$window itemconfigure $cid -width [expr {$xscale*$width}]
@@ -1394,12 +1397,15 @@ snit::type mahjong::svg {
 	    }
 	}	
     }
-    method draw {window svgid x y sx sy ctag} {
-	set immed {}
-	set matrix [matrix-mul-matrix [matrix-from-translate $x $y] [matrix-from-scale $sx $sy]]
-	$self generate-use $window $matrix {} $svgid $ctag
-	$self draw-immed $window
-	return $ctag
+    method draw {window svgid x y sx sy ctags} {
+	if { ! [info exists cache($svgid)]} {
+	    set immed {}
+	    set matrix [matrix-mul-matrix [matrix-from-translate $x $y] [matrix-from-scale $sx $sy]]
+	    $self generate-use $window $matrix {} $svgid {}
+	    set cache($svgid) $immed
+	}
+	$self draw-cache $window $svgid $ctags
+	return $ctags
     }
 }
 
@@ -1915,15 +1921,9 @@ snit::widgetadaptor mahjong::canvas {
 	set options(-start-timer) 0
 	# clear selection
 	$self clear-selected
-	# empty slots
-	foreach slot [$self get-slots] { 
-	    set name [$self get-slot $slot]
-	    if {$name ne {}} {
-		$self tile-unplace $slot $name
-	    }
-	    $self set-empty $slot 
-	}
-	# reset images
+	# reset slot to name map
+	foreach slot [$self get-slots] { $self set-slot $slot {} }
+	# reset name to slot map
 	foreach name [$self get-tiles] { $self set-name $name {} }
 	
 	# pick matching pairs from available
@@ -2049,8 +2049,16 @@ snit::widgetadaptor mahjong::canvas {
 	set x [expr {(3.5+$x)*$fwid + $z*$xstep}]
 	set y [expr {(0.5+$y)*$fhgt - $z*$ystep}]
 	if {[$win find withtag $name] eq {}} {
-	    $tiles draw $win $name $x $y [expr {$twid/64.0}]
-	} else {
+	    $tiles draw $win $name 0 0 1
+	    set scale [expr {$twid/64.0}]
+	    $win scale $name 0 0 $scale $scale
+	    foreach id [$win find withtag $name] {
+		if {[lsearch [$win itemcget $id -tags] scale-width] >= 0} {
+		    $win itemconfigure $id -width [expr {$scale*[$win itemcget $id -width]}]
+		}
+	    }
+	    $win move $name $x $y
+	} elseif {[dict get $data coords $name] ne [list $x $y]} {
 	    foreach {ox oy} [dict get $data coords $name] break
 	    $win move $name [expr {$x-$ox}] [expr {$y-$oy}]
 	}
