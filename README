@@ -47,6 +47,7 @@ Yet to do:
 [x] Implement hints
 [x] Implement pause/continue
 [x] Figure out why the seasons and flowers are blanks
+[x] Popup a game over dialog when all plays have been made.
 [ ] Get the adaptive framing and sizing to work correctly.
 [ ] Scale images for window size.
 [ ] Switch back to using xml layout descriptor
@@ -67,5 +68,5 @@ Yet to do:
 [ ] the coins fade at reduced scale, need width boosting
 [ ] Canvas based imaging is too slow, need to cache the images
   as they become available, or maybe I redraw and erase them too often?
-[ ] Popup a game over dialog when all plays have been made.
+[ ] Increase the default font size for menus, dialogs, entries, etc.
 [ ] Rewrite wish for khronos graphics

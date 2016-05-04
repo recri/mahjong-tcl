@@ -1588,7 +1588,7 @@ snit::widgetadaptor mahjong::canvas {
 	    {separator}
 	    {command b {By Name} by-name}
 	    {separator}
-	    {command q {Quit} quit}
+	    {command q {Quit} quit-game}
 	} {
 	    foreach {entry accelerator label meth var} $record break
 	    if {$record ne {separator}} {
@@ -1696,7 +1696,7 @@ snit::widgetadaptor mahjong::canvas {
 	$self new-game $options(-game)
     }
 	
-    method quit {} { destroy . }
+    method quit-game {} { destroy . }
     
     ##
     ## window display helpers
@@ -1790,6 +1790,21 @@ snit::widgetadaptor mahjong::canvas {
     
     method update-score {} {
 	set options(-remaining-moves) [$self count-moves]
+	if {$options(-remaining-moves) == 0} {
+	    set title {There are no more moves.}
+	    set text [string cat {Each puzzle has at least one solution.} \
+			  { You can undo your moves and try and find the solution,}\
+			  { restart this game, start a new one, or give up.}]
+	    set bitmap {}
+	    set idefault 0
+	    switch [tk_dialog .gameover $title $text $bitmap $idefault Undo Restart {New game} {Quit}] {
+		0 { $self undo }
+		1 { $self restart-game }
+		2 { $self new-game }
+		3 { $self quit-game }
+		-1 { $self undo }
+	    }
+	}
     }
     
     method count-moves {} {
@@ -2257,3 +2272,4 @@ pack [mahjong::canvas .c -background \#323657 \
 	  -tiles [mahjong::tiles ::tiles -svg postmodern.svg -width $width] {*}$argv \
 	  -prefs [mahjong::prefs ::prefs] \
 	 ] -fill both -expand true
+
