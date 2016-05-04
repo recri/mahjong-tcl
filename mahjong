@@ -65,7 +65,85 @@
 # written in C or other high level languages.
 #
 package require Tcl
+package require Tk
 package require snit
+
+set ::usetkpath 0
+if {$::usetkpath} {
+    package require tkpath
+}
+
+snit::type mahjong::prefs {
+    option -file prefs.tcl
+    option -directory -default {} -readonly true
+    constructor {args} {
+	$self configure {*}$args
+    }
+    method resolve {file} {
+	if {[file isdir [file join ~ .config]]} {
+	    set options(-directory) [file join ~ .config mahjong]
+	} elseif {[file isdir [file join ~ Library Preferences]]} {
+	    set options(-directory) [file join ~ Library Preferences mahjong]
+	} elseif {[file isdir [file join ~ {Applications Data}]]} {
+	    set options(-directory) [file join ~ {Applications Data} mahjong]
+	} else {
+	    error "unable to find a preferences directory"
+	}
+	if { ! [file isdir $options(-directory)]} {
+	    file mkdir $options(-directory)
+	}
+	return [file join $options(-directory) $file]
+    }
+    method save-prefs {array} {
+	if {[catch {
+	    set fp [open [$self resolve prefs.tcl] w]
+	    puts $fp "array set prefs {"
+	    foreach {name value} $array {
+		puts $fp [list $name $value]
+	    }
+	    puts $fp "}"
+	    close $fp
+	} error]} {
+	}
+    }
+    method load-prefs {} {
+	if {[catch {
+	    set fp [open [$self resolve prefs.tcl] r]
+	    set prefs [read $fp]
+	    close $fp
+	    if {[string first {array set prefs} $prefs] == 0} {
+		eval $prefs
+		return [array get prefs]
+	    }
+	 } error]} {
+	     return {}
+	 }
+    }
+    method save-scores {dict} {
+	if {[catch {
+	    set fp [open [$self resolve scores.tcl] w] 
+	    dict for {name value} $dict {
+		puts $fp [list $key $value]
+	    }
+	    close $fp
+	} error]} {
+	}
+    }
+    method load-scores {} {
+	if {[catch {
+	    set dict [dict create]
+	    set fp [open [$self resolve scores.tcl] r] 
+	    while {[gets $fp line] >= 0} {
+		foreach {key value} $line break
+		dict set dict $key $value
+	    }
+	    close $fp
+	    return $dict
+	} error]} {
+	    return $dict
+	}
+    }
+}
 
 snit::type mahjong::layout {
     option -verbose -default 1
@@ -450,6 +528,888 @@ snit::type mahjong::layout {
 }
 
 #
+# translate a subset of svg into canvas graphics
+# make the <defs></defs> in an svg file available
+# for rendering as canvas items, and cache the
+# translation
+#
+snit::type mahjong::svg {
+    option -file -default {} -readonly true
+    option -data -default {} -readonly true
+    
+    constructor {args} {
+	$self configure {*}$args
+	if {$options(-data) ne {}} {
+	    $self parse $options(-data)
+	} elseif {$options(-file) ne {}} {
+	    $self parse [read-file $options(-file)]
+	} else {
+	    error "svg needs -data or -file option specified"
+	}
+    }
+
+    #
+    # read a whole file
+    #
+    proc read-file {file} {
+	set fp [open $file]
+	set d [read $fp]
+	close $fp
+	return $d
+    }
+    
+    #
+    # translate an xml format document into a tcl list
+    #
+    proc xml2list xml {
+	regsub -all {>\s*<} [string trim $xml " \n\t<>"] "\} \{" xml
+	set xml [string map {> "\} \{#text \{" < "\}\} \{"}  $xml]
+	
+	set res ""   ;# string to collect the result   
+	set stack {} ;# track open tags
+	set rest {}
+	
+	foreach item "{$xml}" {
+	    switch -regexp -- $item {
+		^# {
+		    append res "{[lrange $item 0 end]} " ; #text item
+		}
+		^/ {
+		    regexp {/(.+)} $item -> tagname ;# end tag
+		    set expected [lindex $stack end]
+		    if {$tagname!=$expected} {error "$item != $expected"}
+		    set stack [lrange $stack 0 end-1]
+		    append res "\}\} "
+		}
+		/$ { # singleton - start and end in one <> group
+		    regexp {([^ ]+)( (.+))?/$} $item -> tagname - rest
+		    set rest [lrange [string map {= " "} $rest] 0 end]
+		    append res "{$tagname [list $rest] {}} "
+		}
+		^!-- { # comment
+		}
+		default {
+		    set tagname [lindex $item 0] ;# start tag
+		    set rest [lrange [string map {= " "} $item] 1 end]
+		    lappend stack $tagname
+		    append res "\{$tagname [list $rest] \{"
+		}
+	    }
+	    if {[llength $rest]%2} {error "att's not paired: $rest"}
+	}
+	if [llength $stack] {error "unresolved: $stack"}
+	string map {"\} \}" "\}\}"} [lindex $res 0]
+    }
+    
+    variable defs -array {}
+    variable targets -array {}
+    variable defsid {}
+    variable immed {}
+    
+    #
+    # translate the svg defining the mahjong tile set
+    # into tk::canvas graphics so the tiles can be 
+    # generated at appropriate scale for whatever
+    # window is used
+    #
+    ##
+    ## interpret transforms
+    ##
+    # is a 3 element row vector
+    proc is-vector {v} {
+	return [tcl::mathop::& [expr {[llength $v]==3}] {*}[lmap vi $v {string is double $vi}]]
+    }
+    # is a 3x3 matrix
+    proc is-matrix {m} {
+	return [tcl::mathop::& [expr {[llength $m]==3}] {*}[lmap mi $m {is-vector $mi}]]
+    }
+    # matrix(a b c d e f) as a matrix
+    proc abcdef-to-matrix {abcdef} {
+	if {[llength $abcdef] != 6} { error "bad abcdef: $abcdef" }
+	foreach {a b c d e f} $abcdef break
+	return [list [list $a $c $e] [list $b $d $f] {0 0 1}]
+    }
+    # scale(x y) as a matrix
+    proc scale-to-abcdef {x {y {}}} {
+	if {$y eq {}} { set y $x }
+	return [list $x 0 0 $y 0 0]
+    }
+    # translate(x y) as a matrix
+    proc translate-to-abcdef {x {y 0}} {
+	return [list 1 0 0 1 $x $y]
+    }
+    proc matrix-from-translate {x {y 0}} {
+	return [abcdef-to-matrix [translate-to-abcdef $x $y]]
+    }
+    proc matrix-from-scale {x {y {}}} {
+	return [abcdef-to-matrix [scale-to-abcdef $x $y]]
+    }
+    # vector dot product between vectors written as rows
+    proc vector-dot {v1 v2} {
+	return [tcl::mathop::+ {*}[lmap x $v1 y $v2 {expr {$x*$y}}]]
+    }
+    # matrix transpose, only 3x3
+    proc matrix-transpose {m} {
+	foreach {r1 r2 r3} $m break
+	return [lmap x1 $r1 x2 $r2 x3 $r3 {list $x1 $x2 $x3}]
+    }
+    # matrix times a matrix, each as a column of rows
+    proc matrix-mul-matrix {m1 m2} {
+	if { ! [is-matrix $m1]} { error "bad matrix: $m1" }
+	if { ! [is-matrix $m2]} { error "bad matrix: $m2" }
+	return [ lmap m1i $m1 { lmap m2j [matrix-transpose $m2] {vector-dot $m1i $m2j} }]
+    }
+    # matrix times a column vector written as a row
+    proc matrix-mul-vector {m v} {
+	return [ lmap mi $m {vector-dot $mi $v} ]
+    }
+    # matrix as matrix(a b c d e f)
+    proc matrix-to-abcdef {matrix} {
+	foreach {r1 r2 r3} $matrix break
+	foreach {a c e} $r1 break
+	foreach {b d f} $r2 break
+	foreach {g h i} $r3 break
+	if {$g != 0 || $h != 0 || $i != 1} { error "matrix has an unexpected third row {$matrix}" }
+	return [list $a $b $c $d $e $f]
+    }
+    # 
+    proc transform-interpret {tag attrs matrix} {
+	# matrix(<a> <b> <c> <d> <e> <f>) -> [[a c e] [b d f] [0 0 1]]
+	#	[xp]   [a c e]   [xn]
+	#	[yp] = [b d f] * [yn]
+	#	[ 1]   [0 0 1]   [ 1]
+	# translate(<x> [<y>]) == matrix(1 0 0 1 x y) -> [[1 0 x][0 1 y][0 0 1]]
+	#	missing <y> then y == 0
+	# scale(<x> [<y>]) == matrix(x 0 0 y 0 0) -> [[x 0 0][0 y 0][0 0 1]]
+	#	missing <y> then y == x
+	# rotate(<a> [<x> <y>]) matrix(cos(a) sin(a) -sin(a) cos(a) 0 0)
+	# skewX(<a>) matrix(1 0 tan(a) 1 0 0)
+	# skewY(<a>) matrix(1 tan(a) 0 1 0 0)
+	#
+	# transform1 transform2 are combined by matrix-mul-matrix $transform1 $transform2 
+	# the current transformation matrix is the combination of all transforms defined 
+	# and it transforms coordinates in the current user coordinate frame into coordinates
+	# in the view port coordinate frame.
+	#
+	array set a $attrs
+	if {[info exists a(transform)]} {
+	    set tfm $a(transform)
+	    set tfm [string map {{,} { }} $tfm]
+	    set tfm [regsub -all {  +} $tfm { }]
+	    set tfm [string trim $tfm]
+	    while {$tfm ne {}} {
+		if {[regexp {([a-zA-Z]+)\(([-0-9. ]+)\)(.*)$} $tfm all op args rest]} {
+		    set n [llength $args]
+		    switch $op {
+			matrix {
+			    if {$n != 6} {
+				error "bad matrix $tfm"
+			    }
+			    set matrix2 [abcdef-to-matrix $args]
+			    set nmatrix [matrix-mul-matrix $matrix $matrix2]
+			    #puts "$matrix * matrix($args) -> $nmatrix"
+			    set matrix $nmatrix
+			}
+			translate {
+			    if {$n != 1 && $n != 2} {
+				error "bad translate $tfm"
+			    }
+			    set matrix2 [abcdef-to-matrix [translate-to-abcdef {*}$args]]
+			    set nmatrix [matrix-mul-matrix $matrix $matrix2]
+			    #puts "$matrix * translate($args) -> $nmatrix"
+			    set matrix $nmatrix
+			}
+			scale {
+			    if {$n != 1 && $n != 2} {
+				error "bad scale $tfm"
+			    }
+			    set matrix2 [abcdef-to-matrix [scale-to-abcdef {*}$args]]
+			    set nmatrix [matrix-mul-matrix $matrix $matrix2]
+			    #puts "$matrix * scale($args) -> $nmatrix"
+			    set matrix $nmatrix
+			}
+			rotate {
+			    if {$n < 1 || $n > 3} {
+				error "bad rotate $tfm"
+			    }
+			    set nmatrix [matrix-mul-matrix $matrix [rotate-to-matrix {*}$args]]
+			    puts "$matrix * rotate($args) -> $nmatrix"
+			    set matrix $nmatrix
+			}
+			skewX {
+			    if {$n != 1} {
+				error "bad skewX $tfm"
+			    }
+			    set nmatrix [matrix-mul-matrix $matrix [skewX-to-matrix {*}$args]]
+			    puts "$matrix * skewX($args) -> $nmatrix"
+			    set matrix $nmatrix
+			}
+			skewY {
+			    if {$n != 1} {
+				error "bad skewY $tfm"
+			    }
+			    set nmatrix [matrix-mul-matrix $matrix [skewY-to-matrix {*}$args]]
+			    puts "$matrix * skewY($args) -> $nmatrix"
+			    set matrix $nmatrix
+			}
+			default {
+			    error "unimplemented transform: $tfm"
+			}
+		    }
+		    set tfm [string trim $rest]
+		}
+	    }
+	}
+	return $matrix
+    }
+    #
+    # path d
+    # lower case relative, upper case absolute
+    # m or M = move
+    # l or L = line
+    # h or H = horizontal line
+    # v or V = vertical line
+    # c or C = cubic bezier 
+    # s or S = short cubic bezier
+    # q or Q = quartic bezier 
+    # t or T = short quartic bezier
+    # z or Z = terminate path
+    # a or A = elliptical arc
+    # numbers with optional spaces and commas
+    #
+    
+    #
+    # this just parses all those wierdly concatenated operands into clean lists
+    # the additional interpretations available are:
+    #  1) rewrite h dx1 dx2 ... to l dx1 0 dx2 0 ...
+    #  2) rewrite v dy1 dy2 ... to l 0 dy1 0 dy2 ...
+    #  3) rewrite s dcx dcy dx dy ... into c ... by inserting the mirrored control point
+    #	(there are relatively few s operations in the tiles)
+    #  4) rewrite l concatenated to c by replicating the knot point as control point
+    #  5) rewrite m c* z as a smoothed canvas polygon
+    #  6) rewrite m c* (anything but z) as a smoothed canvas line
+    #	(there are very few of these in the tiles)
+    #
+    proc path-parse {d} {
+	set n [string length $d]
+	set cmds {}
+	set op {}
+	set num {}
+	set nums {}
+	for {set i 0} {$i < $n} {incr i} {
+	    set c [string index $d $i]
+	    if {$c in {h H v V l L m M z Z c C q Q s S t T}} {
+		if {$num ne {}} { lappend nums $num; set num {} }
+		if {$op ne {}} { lappend cmds [list $op {*}$nums]; set nums {} }
+		set op $c; set num {}; set nums {}
+	    } elseif {$c eq {-}} { # negative sign, only as first character
+		if {$num ne {}} { lappend nums $num; set num {} }
+		append num $c
+	    } elseif {$c in {0 1 2 3 4 5 6 7 8 9 .}} { # part of a number
+		if { ! [string is double $num$c]} { lappend nums $num; set num {} }
+		append num $c
+	    } elseif {[string first $c ", \t\n"] >= 0} { # comma or space or newline, separator
+		if {$num ne {}} { lappend nums $num }
+		set num {}
+	    } else {
+		error "unexpected character {$c} in path.d"
+	    }
+	}
+	if {$num ne {}} { lappend nums $num; set num {} }
+	if {$op ne {}} { lappend cmds [list $op {*}$nums]; set nums {} }
+	return $cmds
+    }
+    proc path-check-operands {cmds} {
+	foreach cmd $cmds {
+	    set n [llength [lrange $cmd 1 end]]
+	    switch [lindex $cmd 0] {
+		m - M { set test {$n == 2} }
+		h - v -
+		H - V { set test {$n > 0} }
+		l - L { set test {$n > 1 && ($n % 2) == 0} }
+		s - S { set test {$n > 3 && ($n % 4) == 0} }
+		c - C { set test {$n > 5 && ($n % 6) == 0} }
+		z - Z { set test {$n == 0} }
+		default {
+		    error "unexpected command: $cmd"
+		}
+	    }
+	    if { ! [expr $test]} {
+		error "wrong number of arguments for: $cmd"
+	    }
+	}
+	return $cmds
+    }
+    proc path-expand {cmds} {
+	
+	# translate from abbreviated commands to cubic beziers
+	set lop {}
+	set lxy {}
+	set results {}
+	foreach cmd $cmds {
+	    set op [lindex $cmd 0]
+	    set nresult [lrange $cmd 1 end]; # $result
+	    while {1} {
+		set result $nresult
+		set nresult {}
+		switch $op {
+		    h { 
+			foreach dx $result { lappend nresult $dx 0 }
+			set op l
+			continue
+		    }
+		    v {
+			foreach dy $result { lappend nresult 0 $dy }
+			set op l
+			continue
+		    }
+		    l {
+			# it seems that if the desired result is that the desired result
+			# is a line from the last point of a cubic bezier, then the last
+			# point in the bezier needs to be tripled, too, but because it's
+			# relative coordinates, that will be 0 0 0 0 0 0.
+			if {$lop eq {c}} { lappend nresult 0 0 0 0 0 0 }
+			foreach {dx dy} $result { lappend nresult $dx $dy $dx $dy $dx $dy }
+			set op c
+			continue
+		    }
+		    s {
+			# this is simplified by the change of coordinate frame.
+			# ldc2x ldc2y and ldx ldy are specified relative to llx lly
+			# so we can mirror ldcx ldcy through ldx ldy by subtraction,
+			# oops, so the prior control point to be mirrored might be
+			# in the c string immediately preceding this s string.
+			if {$lop eq {c}} {
+			    foreach {dc2x dc2y dx dy} [lrange $lxy end-3 end] break
+			} elseif {$lop eq {m}} {
+			    foreach {dc2x dc2y dx dy} [concat $lxy $lxy] break
+			} else {
+			    error "unexpected predecessor $lop to s in ..."
+			}
+			set dc1x [expr {$dx-$dc2x}]
+			set dc1y [expr {$dy-$dc2y}]
+			foreach {dc2x dc2y dx dy} $result {
+			    lappend nresult $dc1x $dc1y $dc2x $dc2y $dx $dy
+			    # compute next dc1x and dc1y
+			    set dc1x [expr {$dx-$dc2x}]
+			    set dc1y [expr {$dy-$dc2y}]
+			}
+			set op c
+			continue
+		    }
+		    z {
+			# close path, hmm, so the path ends c1 c2 k, 
+			# but the k should be the same as the m that 
+			# that started the path?  Looks like it usually
+			# is the m that started the path
+			# if {$lop eq {c} && $llop eq {m}} {
+			#}
+			break
+		    }
+		    m {
+			# in a multi part path, this needs to be relative to
+			# to the end of the previous path part, but maybe
+			# that happens when we translate to coords from deltas.
+		    }
+		    c {
+			break
+		    }
+		}
+		break
+	    }
+	    if {$lop eq $op} {
+		set lxy [list {*}$lxy {*}$result]
+		set results [lreplace $results end end [list $lop {*}$lxy]]
+	    } else {
+		set lop $op
+		set lxy $result
+		lappend results [list $op {*}$lxy]
+	    }
+	    
+	}
+	return $results
+    }
+    proc path-translate-xy {xname yname cmd m c} {
+	upvar $xname x
+	upvar $yname y
+	switch $cmd {
+	    mc - mcz {
+		foreach {dx dy} [lrange $m 1 end] break
+		set x [expr {$x+$dx}]
+		set y [expr {$y+$dy}]
+		lappend cmd $x $y
+		foreach {dc1x dc1y dc2x dc2y dx dy} [lrange $c 1 end] {
+		    set c1x [expr {$x+$dc1x}]
+		    set c1y [expr {$y+$dc1y}]
+		    set c2x [expr {$x+$dc2x}]
+		    set c2y [expr {$y+$dc2y}]
+		    set nx [expr {$x+$dx}]
+		    set ny [expr {$y+$dy}]
+		    lappend cmd $c1x $c1y $c2x $c2y $nx $ny
+		    set x $nx
+		    set y $ny
+		}
+	    }
+	    ML {
+		foreach {x y} [lrange $m 1 end] break
+		lappend cmd $x $y
+		foreach {x y} [lrange $c 1 end] {
+		    lappend cmd $x $y
+		}
+	    }
+	    default {
+		error "unknown cmd {$cmd} in path-translate-xy"
+	    }
+	}
+	return $cmd
+    }
+    proc path-translate {results} {
+	#
+	# concatenate mcz and mc into canvas polygon and line items
+	# translate from relative to absolute coordinates
+	#
+	# puts "path d [join [lmap r $results {lindex $r 0}] {}]"
+	set cmds {}
+	set type [join [lmap r $results {lindex $r 0}] {}];
+	set x 0
+	set y 0
+	while {[llength $results] > 0} {
+	    switch -glob $type {
+		mcz* {
+		    lappend cmds [path-translate-xy x y {mcz} [lindex $results 0] [lindex $results 1]]
+		    set results [lrange $results 3 end]
+		    set type [string range $type 3 end]
+		}
+		mc* {
+		    lappend cmds [path-translate-xy x y {mc} [lindex $results 0] [lindex $results 1]]
+		    set results [lrange $results 2 end]
+		    set type [string range $type 2 end]
+		}
+		ML* {
+		    lappend cmds [path-translate-xy x y {ML} [lindex $results 0] [lindex $results 1]]
+		    set results [lrange $results 2 end]
+		    set type [string range $type 2 end]
+		}
+		default {
+		    error "unexpected type $type"
+		}
+	    }
+	}
+	return $cmds
+    }
+    proc path-interpret {d} {
+	set cmds [path-parse $d]
+	set cmds [path-check-operands $cmds]
+	set cmds [path-expand $cmds]
+	return [path-translate $cmds]
+    }
+    #
+    # item generators
+    # oh, got the defs/use wrong
+    # need to do the translation 
+    # at the time of the call so
+    # that parameters supplied to
+    # the use can be expanded in
+    # the call.
+    #
+    method generate-emit {window matrix code ctags} {
+	if {[$self in-defs $ctags]} {
+	    # set id [lindex $ctags $i+1]
+	    # puts "$ctags implies definition of $id"
+	    # lappend defs($id) [list $matrix $code]
+	} else {
+	    # puts "$ctags implies immediate code"
+	    lappend immed [list $matrix $code]
+	}
+    }
+    method generate-frag-finish {window matrix frag ctags} {
+	if {[lsearch $frag -width] >= 0} { lappend ctags scale-width }
+	lappend frag -tags $ctags
+	$self generate-emit $window $matrix $frag $ctags
+    }
+    method generate-line-finish {window matrix frag fill stroke stroke-width ctags} {
+	if {$stroke ne {}} { lappend frag -fill $stroke }
+	if {${stroke-width} ne {}} { lappend frag -width ${stroke-width} }
+	$self generate-frag-finish $window $matrix $frag $ctags
+    }
+    method generate-poly-finish {window matrix frag fill stroke stroke-width ctags} {
+	if {$fill eq {none}} { set fill {} }
+	lappend frag -fill $fill
+	if {$stroke ne {}} { lappend frag -outline $stroke }
+	if {${stroke-width} ne {}} { lappend frag -width ${stroke-width} }
+	$self generate-frag-finish $window $matrix $frag $ctags
+    }
+    method generate-path {window matrix d fill stroke stroke-width ctags} {
+	foreach cmd [path-interpret $d] {
+	    set op [lindex $cmd 0]
+	    set coords [lrange $cmd 1 end]
+	    switch $op {
+		mcz { $self generate-poly-finish $window $matrix [list $window create polygon {*}$coords -smooth raw] $fill $stroke ${stroke-width} $ctags }
+		mc { $self generate-line-finish $window $matrix [list $window create line {*}$coords -smooth raw] $fill $stroke ${stroke-width} $ctags }
+		ML { $self generate-line-finish $window $matrix [list $window create line {*}$coords] $fill $stroke ${stroke-width} $ctags }
+		default { error "unknown op $op" }
+	    }
+	}
+    }
+    method generate-polygon {window matrix points fill stroke stroke-width ctags} {
+	set frag [list $window create polygon {*}$points]
+	$self generate-poly-finish $window $matrix $frag $fill $stroke ${stroke-width} $ctags
+    }
+    method generate-line {window matrix x1 y1 x2 y2 fill stroke stroke-width ctags} {
+	set frag [list $window create line $x1 $y1 $x2 $y2]
+	$self generate-line-finish $window $matrix $frag $fill $stroke ${stroke-width} $ctags
+    }
+    method generate-rect {window matrix x y width height fill stroke stroke-width ctags} {
+	set frag [list $window create rectangle $x $y [expr {$x+$width}] [expr {$y+$height}]]
+	$self generate-poly-finish $window $matrix $frag $fill $stroke ${stroke-width} $ctags
+    }
+    method generate-circle {window matrix cx cy r fill stroke stroke-width ctags} {
+	set frag [list $window create oval [expr {$cx-$r}] [expr {$cy-$r}] [expr {$cx+$r}] [expr {$cy+$r}]]
+	$self generate-poly-finish $window $matrix $frag $fill $stroke ${stroke-width} $ctags
+    }
+    method generate-ellipse {window matrix cx cy rx ry fill stroke stroke-width ctags} {
+	set frag [list $window create oval [expr {$cx-$rx}] [expr {$cy-$ry}] [expr {$cx+$rx}] [expr {$cy+$ry}]]
+	$self generate-poly-finish $window $matrix $frag $fill $stroke ${stroke-width} $ctags
+    }
+    method generate-use {window matrix pattrs id ctags} {
+	# puts "use $matrix $id $ctags :: $defs($id)"
+	if {[$self in-defs $ctags]} {
+	    # when in defs section ignore the translation
+	} else {
+	    # regenerate the code 
+	    # puts "use $id -> $defs($id)"
+	    foreach {indent c m p tag attrs body} $defs($id) break
+	    set pattrs [concat $p $pattrs]
+	    set ctags [list {*}$c {*}$ctags]
+	    $self element-traverse-one $window $indent $ctags $matrix $pattrs $tag $attrs $body
+	}
+    }
+
+    #
+    # checkers
+    #
+    variable tags -array {
+	svg {
+	    ignore-all false
+	    can-be-def false
+	    require {height width viewBox} ignore {id xmlns:rdf xmlns version xmlns:cc xmlns:xlink xmlns:dc}
+	    body-empty false
+	}
+	metadata {
+	    ignore-all false
+	    can-be-def false
+	    ignore {id}
+	    body-empty false
+	}
+	rdf:RDF	{
+	    ignore-all false
+	    can-be-def false
+	    body-empty false
+	}
+	cc:Work {
+	    ignore-all false
+	    can-be-def false
+	    ignore rdf:about
+	    body-empty false
+	}
+	dc:format {
+	    ignore-all false
+	    can-be-def false
+	    body-empty false
+	}
+	\#text {
+	    ignore-all true
+	}
+	dc:type {
+	    ignore-all false
+	    can-be-def false
+	    ignore {rdf:resource}
+	    body-empty false
+	}
+	defs {
+	    ignore-all false
+	    can-be-def false
+	    ignore {id}
+	    body-empty false
+	}
+	g {
+	    ignore-all false
+	    can-be-def true
+	    permit {transform style stroke stroke-width fill x y} ignore {id}
+	    body-empty false
+	    attr-filler {fill {} stroke {} stroke-width {}}
+	}
+	path {
+	    ignore-all false
+	    can-be-def true
+	    require {d} permit {id fill stroke stroke-width style}
+	    body-empty true
+	    attr-filler {fill {} stroke {} stroke-width {}}
+	}
+	polygon {
+	    ignore-all false
+	    can-be-def true
+	    require {points} permit {stroke stroke-width fill} ignore {id}
+	    body-empty true
+	    attr-filler {fill {} stroke {} stroke-width {}}
+	}
+	line {
+	    ignore-all false
+	    can-be-def true
+	    require {x1 y1 x2 y2} permit {fill stroke stroke-width} ignore {id}
+	    body-empty true
+	    attr-filler {fill {} stroke {} stroke-width {}}
+	}
+	rect {
+	    ignore-all false
+	    can-be-def true
+	    body-empty true
+	    attr-filler {fill {} stroke {} stroke-width {}}
+	    require {x y width height} permit {stroke stroke-width fill} ignore {id}
+	}
+	circle {
+	    ignore-all false
+	    can-be-def true
+	    body-empty true
+	    attr-filler {fill {} stroke {} stroke-width {}}
+	    require {cx cy r} permit {stroke stroke-width fill} ignore {id}
+	}
+	ellipse {
+	    ignore-all false
+	    can-be-def true
+	    body-empty true
+	    attr-filler {fill {} stroke {} stroke-width {}}
+	    require {cx cy rx ry} permit {stroke stroke-width fill} ignore {id}
+	}
+	use {
+	    ignore-all false
+	    can-be-def true
+	    body-empty true
+	    attr-filler {fill {} stroke {} stroke-width {}}
+	    require {xlink:href} permit {transform style fill stroke stroke-width x y} ignore {id}
+	}
+    }
+    
+    method tag-test {tag test} {
+	array set info $tags($tag)
+	return $info($test)
+    }
+    method ignore-all {tag} {
+	return [$self tag-test $tag ignore-all]
+    }
+    method can-be-def {tag} {
+	return [$self tag-test $tag can-be-def]
+    }
+    method attr-check {tag attributes} {
+	array set info $tags($tag)
+	array set b $attributes
+	set missing {}
+	foreach treatment {require permit ignore} {
+	    if { ! [info exists info($treatment)]} continue
+	    set attrs $info($treatment)
+	    foreach attr $attrs { 
+		set e [info exists b($attr)]
+		switch $treatment {
+		    require { if {$e} { unset b($attr) } else { lappend missing $attr } }
+		    permit { if {$e} { unset b($attr) } }
+		    ignore { if {$e} { unset b($attr) } }
+		    default { error "unknown attribute treatment: $treatment" }
+		}
+	    }
+	}
+	set leftovers [array names b]
+	if {$missing ne {} || $leftovers ne {}} {
+	    error "attr-check $tag leftovers {$leftovers} missing {$missing}"
+	}
+    }
+    proc attr-filter {attrs} {
+	set fattrs {}
+	foreach {name value} $attrs {
+	    if {$name in {fill stroke stroke-width}} {
+		lappend fattrs $name $value
+	    }
+	}
+	return $fattrs
+    }
+    method body-empty {tag body} {
+	if {[$self tag-test $tag body-empty] && $body ne {}} { 
+	    error "$tag body is not empty {$body}"
+	}
+    }
+    method interesting-id {tag attrs} {
+	array set a $attrs
+	if { ! [info exists a(id)]} { return 0 }
+	set id $a(id)
+	if {[regexp ^$tag\\d+$ $id]} {
+	    #puts "$tag id=$id is uninteresting"
+	    return 0
+	}
+	if {$tag eq {path} && [regexp ^circle\\d+$ $id]} {
+	    #puts "$tag id=$id is uninteresting"
+	    return 0
+	}
+	if {[info exists targets($id)]} {
+	    error "$tag $id already defined as $targets($id)"
+	}
+	#puts "saving $tag $id"
+	set targets($id) $tag
+	return 1
+    }
+    method interesting-target {tag attrs} {
+	array set a $attrs
+	if { ! [info exists a(xlink:href)]} { error "$tag has no href attribute" }
+	set href $a(xlink:href)
+	if {[string first \# $href] != 0} { error "$tag href $href does not start with #" }
+	set href [string range $href 1 end]
+	if { ! [info exists targets($href)]} { error "$tag href $href is not defined" }
+	return $href
+    }
+    proc unpack-style {tag attrs} {
+	array set a $attrs
+	if {[info exists a(style)]} {
+	    switch -regexp $a(style) {
+		fill:#[0-9a-f]+ { return [list fill [string range $a(style) 5 end]] }
+		stroke:#[0-9a-f]+ { return [list stroke [string range $a(style) 7 end]] }
+		default { error "$tag unhandled style $a(style)" }
+	    }
+	}
+	return {}
+    }
+    method build-attrs {tag attrs pattrs} {
+	array set info $tags($tag)
+	if {[info exists info(attr-filler)]} {
+	    array set a [concat $info(attr-filler) $pattrs $attrs]
+	    array set a [unpack-style $tag $attrs]
+	} else {
+	    array set a [concat $pattrs $attrs]
+	}
+	return [array get a]
+    }
+    
+    proc lremove {list item} {
+	set i [lsearch $list $item]
+	if {$i >= 0} {
+	    set list [lreplace $list $i $i]
+	}
+	return $list
+    }
+    method in-defs {ctags} {
+	return [expr {$defsid ne {} && [lsearch $ctags $defsid] >= 0}]
+    }
+    
+    # traverse a document tree $doc
+    # using $indent as an indentation string
+    # and $ctags as the inherited canvas tags
+    # and $pattrs as the inherited attributes
+    method element-traverse {window indent ctags matrix pattrs doc} {
+	foreach {tag attrs body} $doc {
+	    $self element-traverse-one $window $indent $ctags $matrix $pattrs $tag $attrs $body
+	}
+    }
+    method element-traverse-one {window indent ctags matrix pattrs tag attrs body} {
+	#element-setup $tag $attrs $body
+	# if {$indent in {{} { } {  }}} { puts stdout "$indent$tag $attrs" }
+	if {[$self ignore-all $tag]} return
+	$self attr-check $tag $attrs
+	$self body-empty $tag $body
+	array set a [$self build-attrs $tag $attrs $pattrs]
+	if {[info exists a(id)] && $a(id) ni $ctags} { lappend ctags $a(id) }
+	if {[$self can-be-def $tag] && [$self in-defs $ctags] && [$self interesting-id $tag $attrs]} {
+	    set defs($a(id)) [list $indent [lremove $ctags $defsid] $matrix $pattrs $tag $attrs $body]
+	}
+	switch $tag {
+	    svg -
+	    metadata -
+	    rdf:RDF -
+	    cc:Work -
+	    dc:format -
+	    dc:type {}
+	    defs { 
+		set defsid $a(id)
+	    }
+	    g {
+		set matrix [transform-interpret $tag $attrs $matrix]
+		set pattrs [attr-filter [array get a]]
+	    }
+	    path {
+		$self generate-path $window $matrix $a(d) $a(fill) $a(stroke) $a(stroke-width) $ctags
+	    }
+	    polygon {
+		$self generate-polygon $window $matrix $a(points) $a(fill) $a(stroke) $a(stroke-width) $ctags
+	    }
+	    line {
+		$self generate-line $window $matrix $a(x1) $a(y1) $a(x2) $a(y2) $a(fill) $a(stroke) $a(stroke-width) $ctags
+	    }
+	    rect {
+		$self generate-rect $window $matrix $a(x) $a(y) $a(width) $a(height) $a(fill) $a(stroke) $a(stroke-width) $ctags
+	    }
+	    circle {
+		$self generate-circle $window $matrix $a(cx) $a(cy) $a(r) $a(fill) $a(stroke) $a(stroke-width) $ctags
+	    }
+	    ellipse {
+		$self generate-ellipse $window $matrix $a(cx) $a(cy) $a(rx) $a(ry) $a(fill) $a(stroke) $a(stroke-width) $ctags
+	    }
+	    use {
+		# call definition
+		set x 0; if {[info exists a(x)]} { set x $a(x) }
+		set y 0; if {[info exists a(y)]} { set y $a(y) }
+		set matrix [transform-interpret $tag $attrs $matrix]
+		if {$x != 0 || $y != 0} {
+		    set matrix [matrix-mul-matrix $matrix [matrix-from-translate $x $y] ]
+		}
+		set id [$self interesting-target $tag $attrs]
+		$self generate-use $window $matrix [attr-filter [array get a]] $id $ctags
+	    }
+	    default {
+		puts stderr "missing tag $tag"
+	    }
+	}
+	foreach item $body { $self element-traverse $window "$indent " $ctags $matrix $pattrs $item }
+    }
+
+    #
+    # parse an svg document
+    #
+    method parse {doc} {
+	$self element-traverse .svg {} {} [abcdef-to-matrix {1 0 0 1 0 0}] {} [xml2list $doc] 
+    }
+    method defs {{pattern *}} {
+	return [array names defs $pattern]
+    }
+    variable cache -array {}
+    method draw-cache {window svgid ctags} {
+	foreach record $cache($svgid) {
+	    foreach {matrix code} $record break
+	    set abcdef [matrix-to-abcdef $matrix]
+	    set cid [{*}$code]
+	    # puts "$cid <- $code"
+	    set xscale [lindex $abcdef 0]
+	    set yscale [lindex $abcdef 3]
+	    set xmove [lindex $abcdef 4]
+	    set ymove [lindex $abcdef 5]
+	    $window scale $cid 0 0 $xscale $yscale
+	    $window move $cid $xmove $ymove
+	    foreach t $ctags { $window addtag $t withtag $cid }
+	    if {[lsearch [$window itemcget $cid -tags] scale-width] >= 0} {
+		set width [$window itemcget $cid -width]
+		$window itemconfigure $cid -width [expr {$xscale*$width}]
+		# puts "$cid [$window itemcget $cid -tags] $width -> [expr {$xscale*$width}]"
+	    }
+	}	
+    }
+    method draw {window svgid x y sx sy ctags} {
+	if { ! [info exists cache($svgid)]} {
+	    set immed {}
+	    set matrix [matrix-mul-matrix [matrix-from-translate $x $y] [matrix-from-scale $sx $sy]]
+	    $self generate-use $window $matrix {} $svgid {}
+	    set cache($svgid) $immed
+	}
+	$self draw-cache $window $svgid $ctags
+	return $ctags
+    }
+}
+
+#
 # I currently render the tiles svg file into a png using inkscape. The svg renders into
 # an image with two rows of 44 tiles each.  The top row contains the unselected images 
 # and the bottom row the selected images.  The list initializing the -tiles option below
@@ -467,23 +1427,22 @@ snit::type mahjong::layout {
 #
 snit::type mahjong::tiles {
     option -svg -readonly true
-    option -png -readonly true
     option -width -readonly true
     option -height -readonly true
-    option -image -readonly true
-    option -keep -default 1 -readonly true
     option -tiles -readonly true -default {
-	stone-1 stone-2 stone-3 stone-4 stone-5 stone-6 stone-7 stone-8 stone-9
-	north   west    south   east    red     green
-	number-1 number-2 number-3 number-4 number-5 number-6 number-7 number-8 number-9
-	bamboo-1 bamboo-2 bamboo-3 bamboo-4 bamboo-5 bamboo-6 bamboo-7 bamboo-8 bamboo-9
-	season-1 season-2 season-3 season-4 {}       flower-1 flower-2 flower-3 flower-4
-	white
+	one-coin two-coins three-coins four-coins five-coins six-coins seven-coins eight-coins nine-coins
+	north-wind west-wind south-wind east-wind red-dragon green-dragon
+	one-character two-character three-character four-character five-character six-character seven-character eight-character nine-character 
+	one-bamboo two-bamboo three-bamboo four-bamboo five-bamboo six-bamboo seven-bamboo eight-bamboo nine-bamboo 
+	season-1 season-2 season-3 season-4 white-dragon flower-1 flower-2 flower-3 flower-4 {}
     }
+    option -pieces -readonly true
     option -normal -readonly true
     option -select -readonly true
 
     variable map [dict create]
+
+    component svg
 
     constructor {args} {
 	$self configure {*}$args
@@ -492,20 +1451,7 @@ snit::type mahjong::tiles {
 	set twid $options(-width)
 	set thgt [expr {$twid*11/8}]
 	set options(-height) $thgt
-
-	if { ! [file exists $options(-png)]} {
-	    # -e $png == export to png file $png
-	    # -D == export drawing
-	    # -d $dpi == export at $dpi dots per inch (but better overridden by -w $width)
-	    # -w $width == export at width of $width pixels
-	    # -y 0.0 == export with background set to transparent
-	    # exec inkscape -e $options(-png) -D -w [expr {$n*$twid}] -y 0.0 $options(-svg)
-	    exec ./svg-stuff -w [expr {$n*$twid}] $options(-svg) $options(-png)
-	}
-
-	set options(-image) [image create photo -file $options(-png)]
-	if { ! $options(-keep)} { exec rm $png }
-	set img $options(-image)
+	set svg [mahjong::svg $self.svg -file $options(-svg)]
 	set options(-normal) {}
 	set options(-select) {}
 	for {set i 0} {$i < $n} {incr i} {
@@ -515,20 +1461,9 @@ snit::type mahjong::tiles {
 		    season-* - flower-* { set card 1 }
 		    default { set card 4 }
 		}
-		set x1 [expr {$i*$twid}]
-		set x2 [expr {$x1+$twid}]
-		set y1 0
-		set y2 [expr {$y1+$thgt}]
-		set y3 [expr {$y2+$thgt}]
-		set nor [image create photo]
-		$nor copy $img -from $x1 $y1 $x2 $y2
-		set sel [image create photo]
-		$sel copy $img -from $x1 $y2 $x2 $y3
 		for {set j 1} {$j <= $card} {incr j} {
 		    set tname "$name#$j"
 		    dict set map $tname name $name
-		    dict set map $tname normal $nor
-		    dict set map $tname select $sel
 		    if {$card == 4} {
 			dict set map $tname match $name
 		    } else {
@@ -541,18 +1476,24 @@ snit::type mahjong::tiles {
     # tiles returns a complete tile set, list of name#instance
     method get-tiles {} { return [dict keys $map] }
     # normal returns the normal image for a tile
-    method normal {name} { return [dict get $map $name normal] } 
+    method normal {name} { return [list plain-$name face-$name] } 
     # select returns the selected image for a tile
-    method select {name} { return [dict get $map $name select] } 
+    method select {name} { return [list selected-$name face-$name] } 
     # match tests if the first tile matches the second tile
     method match {name1 name2} { return [expr {[dict get $map $name1 match] eq [dict get $map $name2 match]}] }
+    # draw a tile
+    method draw {window tile x y s} {
+	$svg draw $window selected-tile $x $y $s $s [list $tile selected]
+	$svg draw $window plain-tile $x $y $s $s [list $tile plain]
+	$svg draw $window [dict get $map $tile name] $x $y $s $s [list $tile face]
+    }
 }
 
 snit::widgetadaptor mahjong::canvas {
     option -layout -readonly true
     option -tiles -readonly true
-    option -items -readonly true
-    option -shuffled-items -readonly true
+    option -prefs -readonly true
+    option -shuffled-tiles -readonly true
     option -shuffled-slots -readonly true
     option -offsets -default {0 0} -readonly true
     option -trace false
@@ -587,10 +1528,14 @@ snit::widgetadaptor mahjong::canvas {
     delegate option * to hull
     delegate method * to hull
     
-    variable data [dict create]
+    variable data [dict create selected {} paused false]
     
     constructor {args} {
-	installhull using ::canvas
+	if {$::usetkpath} {
+	    installhull using ::tkp::canvas
+	} else {
+	    installhull using ::canvas
+	}
 	bind $win <Configure> [mymethod adjust-window]
 	bind $win <Button-3> [list {*}[mymethod menu-popup] %W %x %y]
 	$self configure {*}$args
@@ -603,15 +1548,7 @@ snit::widgetadaptor mahjong::canvas {
 	set twid [$self cget -width]
 	set thgt [$self cget -height]
 	
-	foreach name [$self get-tiles] {
-	    set it [$win create image 0 0 -anchor nw]
-	    dict set data name-to-item $name $it
-	    dict set data item-to-name $it $name
-	    dict set data selected {}
-	    $win itemconfigure $it -image [$self normal-image $it]
-	    # puts "$it is $name $i"
-	    lappend options(-items) $it
-	}
+	# foreach name [$self get-tiles] { }
 	
 	if {$options(-game) ne {0}} {
 	    $self new-game [scan-game $options(-game)]
@@ -620,22 +1557,20 @@ snit::widgetadaptor mahjong::canvas {
 	}
     }
     
-    method name-to-item {name} { return [dict get $data name-to-item $name] }
-    method item-to-name {item} { return [dict get $data item-to-name $item] }
-    method item-to-slot {item} { return [dict get $data item-to-slot $item] }
-    method slot-to-item {slot} { return [$self get-slot $slot] }
-    method slot-to-name {slot} { return [$self item-to-name [$self slot-to-item $slot]] }
-    
-    method normal-image {item} { return [$tiles normal [$self item-to-name $item]] }
-    method select-image {item} { return [$tiles select [$self item-to-name $item]] }
-    method blank-image {item} { return [$tiles normal white#1] }
-    
+    method set-name {name slot} { dict set data name-to-slot $name $slot }
+    method get-name {name} { return [dict get $data name-to-slot $name] }
+
+    method get-remaining-tiles {} {
+	return [lmap name [$self get-tiles] {expr {[$self get-name $name] ne {}?$name:[continue]}}]
+    }
+
     # context menu, button 3 or 2 on the background
     # with single character accelerators on the root window
     method menu-build {} {
 	# popup menu
 	menu .m -tearoff no
-	foreach entry {
+	set accels {}
+	foreach record {
 	    {command n {New Game} new-game}
 	    {command o {Restart} restart-game}
 	    {separator}
@@ -648,30 +1583,34 @@ snit::widgetadaptor mahjong::canvas {
 	    {separator}
 	    {hint m {Menu} menu-menu}
 	    {command s {Scores} scores}
-	    {command p {Preferences} preferences}
-	    {command j {Help} help}
+	    {command f {Preferences} preferences}
+	    {command ? {Help} help}
 	    {separator}
-	    {command d {Debug} debug}
 	    {command b {By Name} by-name}
 	    {separator}
-	    {command q {Quit} quit}
+	    {command q {Quit} quit-game}
 	} {
-	    foreach {entry accelerator label meth var} $entry break
+	    foreach {entry accelerator label meth var} $record break
+	    if {$record ne {separator}} {
+		if {[lsearch -exact $accels $accelerator] >= 0} { error "duplicate accelerator for $record" }
+		lappend accels $accelerator
+	    }
 	    switch $entry {
 		separator {
 		    .m add separator
 		}
 		command {
 		    .m add command -accelerator $accelerator -label $label -command [mymethod $meth]
-		    bind . <$accelerator> [list {*}[mymethod menu-protect] $label $meth]
+		    if {$accelerator eq {?}} { set accelerator question }
+		    bind . <KeyPress-$accelerator> [list {*}[mymethod menu-protect] $label $meth]
 		}
 		checkbutton {
 		    .m add checkbutton -accelerator $accelerator -label $label -variable [myvar $var]
-		    bind . <$accelerator> [list {*}[mymethod menu-protect] $label $meth]
+		    bind . <KeyPress-$accelerator> [list {*}[mymethod menu-protect] $label $meth]
 		}
 		hint {
 		    .m add command -accelerator $accelerator -label $label
-		    bind . <$accelerator> [mymethod $meth]
+		    bind . <KeyPress-$accelerator> [mymethod $meth]
 		}
 		default {
 		    error "unexpected menu entry command $entry"
@@ -690,6 +1629,7 @@ snit::widgetadaptor mahjong::canvas {
     }
     # protect an accelerator from calling the entry function when disabled
     method menu-protect {label meth} {
+	# puts "$self menu-protect $label $meth"
 	if {[.m entrycget $label -state] eq {normal}} {
 	    $self $meth
 	}
@@ -714,17 +1654,24 @@ snit::widgetadaptor mahjong::canvas {
     }
     method restart-game {} { $self restart }
     method pause-game {} {
+	$self clear-selected
 	dict set data paused true
-	foreach item [$self get-items] { $win itemconfigure $item -image [$self normal-image [$self blank-image]] }
+	foreach tile [$self get-remaining-tiles] { $self show [$self get-name $tile] $tile blank }
 	$self menu-enable-disable {{Continue}} {{New Game} {Restart} {Pause} {Hint} {Undo} {Redo} {Scores} {Preferences} {Help}}
-	# turn off selection?
     }
     method continue-game {} {
 	$self menu-enable-disable {{New Game} {Restart} {Pause} {Hint} {Undo} {Redo} {Scores} {Preferences}} {{Continue}}
-	foreach item  [$self get-items] { $win itemconfigure $item -image [$self normal-image $item] }
+	foreach tile [$self get-remaining-tiles] { $self show [$self get-name $tile] $tile plain }
 	dict set data paused false
     }
-    method hint {} {}
+    method hint {} {
+	set slots [concat {*}[$self find-moves]]
+	if {$slots ne {}} {
+	    dict incr data hint
+	    set slot [lindex $slots [expr {[dict get $data hint]%[llength $slots]}]]
+	    $self set-selected $slot [$self get-slot $slot]
+	}
+    }
     method undo {} { $self history-undo }
     method redo {} { $self history-redo }
     
@@ -732,7 +1679,7 @@ snit::widgetadaptor mahjong::canvas {
     
     method scores {} {}
     method preferences {} {}
-    method debug {} { $self history-restore $options(-deal-history) }
+    method help {} { puts "help called" }
     method by-name {} {
 	toplevel .b
 	wm title .b {By Name}
@@ -749,7 +1696,7 @@ snit::widgetadaptor mahjong::canvas {
 	$self new-game $options(-game)
     }
 	
-    method quit {} { destroy . }
+    method quit-game {} { destroy . }
     
     ##
     ## window display helpers
@@ -791,18 +1738,17 @@ snit::widgetadaptor mahjong::canvas {
 	return $list
     }
     
-    method sort-matching {items} {
+    method sort-matching {names} {
  	set sort {}
- 	while {[llength $items] > 0} {
- 	    set it1 [lindex $items 0]
- 	    set items [lrange $items 1 end]
- 	    lappend sort $it1
- 	    set n1 [$self item-to-name $it1]
- 	    for {set i2 0} {$i2 < [llength $items]} {incr i2} {
- 		set it2 [lindex $items $i2]
- 		if {[$self match $n1 [$self item-to-name $it2]]} {
- 		    lappend sort $it2
- 		    set items [lreplace $items $i2 $i2]
+ 	while {[llength $names] > 0} {
+ 	    set name1 [lindex $names 0]
+ 	    set names [lrange $names 1 end]
+ 	    lappend sort $name1
+ 	    for {set n2 0} {$n2 < [llength $names]} {incr n2} {
+ 		set name2 [lindex $names $n2]
+ 		if {[$self match $name1 $name2]} {
+ 		    lappend sort $name2
+ 		    set names [lreplace $names $n2 $n2]
  		    break
  		}
  	    }
@@ -813,7 +1759,7 @@ snit::widgetadaptor mahjong::canvas {
     
     method raise-in-render-order {} {
 	foreach slot [$self get-slots] {
-	    $win raise [$layout get $slot slot]
+	    $win raise [$self get-slot $slot]
 	}
     }
     
@@ -844,6 +1790,21 @@ snit::widgetadaptor mahjong::canvas {
     
     method update-score {} {
 	set options(-remaining-moves) [$self count-moves]
+	if {$options(-remaining-moves) == 0} {
+	    set title {There are no more moves.}
+	    set text [string cat {Each puzzle has at least one solution.} \
+			  { You can undo your moves and try and find the solution,}\
+			  { restart this game, start a new one, or give up.}]
+	    set bitmap {}
+	    set idefault 0
+	    switch [tk_dialog .gameover $title $text $bitmap $idefault Undo Restart {New game} {Quit}] {
+		0 { $self undo }
+		1 { $self restart-game }
+		2 { $self new-game }
+		3 { $self quit-game }
+		-1 { $self undo }
+	    }
+	}
     }
     
     method count-moves {} {
@@ -880,7 +1841,7 @@ snit::widgetadaptor mahjong::canvas {
 	    $self menu-enable-disable {} {Undo Redo}
 	}
     }
-    method history-save {} {
+    method history-save-reversed {} {
 	dict with data history {
 	    return [dict create count 0 future $future items [lreverse $items]]
 	}
@@ -899,14 +1860,14 @@ snit::widgetadaptor mahjong::canvas {
     method history-get-count {} { return [dict get $data history count] }
     method history-get-future {} { return [dict get $data history future] }
     method history-get-items {} { return [dict get $data history items] }
-    method history-add {it1 sl1 it2 sl2} {
+    method history-add {nm1 sl1 nm2 sl2} {
 	$self clear-selected
 	incr options(-remaining-tiles) -2
 	dict with data history {
 	    if {[llength $items] > $count} {
 		set items [lrange $items 0 $count-1]
 	    }
-	    lappend items [list $it1 $sl1 $it2 $sl2]
+	    lappend items [list $nm1 $sl1 $nm2 $sl2]
 	    incr count 1
 	    set future $count
 	    $self menu-enable-disable {Undo} {Redo}
@@ -941,18 +1902,13 @@ snit::widgetadaptor mahjong::canvas {
 	}
     }
     
-    ##
-    ## these change whether we're unplaying or playing
-    ##
-    method move-undo {item1 slot1 item2 slot2} {
-	# puts "move-undo $item1 $slot1 $item2 $slot2"
-	$self place-tile $slot1 $item1
-	$self place-tile $slot2 $item2
+    method move-undo {name1 slot1 name2 slot2} {
+	$self tile-place $slot1 $name1
+	$self tile-place $slot2 $name2
     }
-    method move-redo {item1 slot1 item2 slot2} {
-	# puts "move-redo $item1 $slot1 $item2 $slot2"
-	$self unplace-tile $slot1 $item1
-	$self unplace-tile $slot2 $item2
+    method move-redo {name1 slot1 name2 slot2} {
+	$self tile-unplace $slot1 $name1
+	$self tile-unplace $slot2 $name2
     }
     
     ##
@@ -968,7 +1924,7 @@ snit::widgetadaptor mahjong::canvas {
 	set options(-game) $game
 	expr {srand($options(-game))}
 	set options(-shuffled-slots) [shuffle [$self get-slots]]
-	set options(-shuffled-items) [$self sort-matching [shuffle [$self get-items]]]
+	set options(-shuffled-tiles) [$self sort-matching [shuffle [$self get-tiles]]]
 	$self start-status
     }
     
@@ -976,96 +1932,67 @@ snit::widgetadaptor mahjong::canvas {
     ## start or restart the currently setup game
     ##
     method restart {} {
-	# empty slots
-	foreach slot [$self get-slots] { $self set-empty $slot }
-	# reset images
-	foreach item $options(-items) { $win itemconfigure $item -image [$self normal-image $item] }
-	# clear selection
-	$self clear-selected
-	# empty history
-	$self history-empty
 	# reset timer
 	set options(-start-timer) 0
+	# clear selection
+	$self clear-selected
+	# reset slot to name map
+	foreach slot [$self get-slots] { $self set-slot $slot {} }
+	# reset name to slot map
+	foreach name [$self get-tiles] { $self set-name $name {} }
 	
 	# pick matching pairs from available
-	set items $options(-shuffled-items)
+	set names $options(-shuffled-tiles)
 	set slots $options(-shuffled-slots)
 	set moves {}
 	
-	while {[llength $items]} {
-	    set options(-remaining-tiles) [expr {[llength $moves]/2}]
+	while {[llength $names]} {
+	    set options(-remaining-tiles) [llength $names]
 	    
-	    ## choose the pair of matched items to play
-	    # take first and second item in item list
-	    foreach {it1 it2} $items break
-	    set items [lrange $items 2 end]
+	    ## choose the pair of matched tiles to play
+	    # take first and second tiles in name list
+	    foreach {name1 name2} $names break
+	    set names [lrange $names 2 end]
 	    
 	    # take first open slot in slot list
-	    set sl1 [$self find-can-unplay $slots]
-	    set s1 [lsearch $slots $sl1]
+	    set slot1 [$self find-can-unplay $slots]
+	    set s1 [lsearch $slots $slot1]
 	    set slots [lreplace $slots $s1 $s1]
 
-	    # mark the slot as played
-	    $self place-tile $sl1 $it1
-	    
+	    # put the first tile in its slot
+	    $self tile-place $slot1 $name1
+	    lappend moves $name1 $slot1
 	    # take next open slot in slot list
-	    # but avoid slots that block $sl1
-	    set sl2 [$self find-can-unplay $slots $sl1]
-	    set s2 [lsearch $slots $sl2]
+	    # but avoid slots that block $slot1
+	    set slot2 [$self find-can-unplay $slots $slot1]
+	    set s2 [lsearch $slots $slot2]
 	    set slots [lreplace $slots $s2 $s2]
 	    
-	    # put the second items in their slots
-	    $self place-tile $sl2 $it2
+	    # put the second tile in its slot
+	    $self tile-place $slot2 $name2
 	    
 	    # make backwards history
-	    lappend moves $it1 $sl1 $it2 $sl2
-	}
-	
-	# make the history of the play
-	$self history-empty
-	foreach {it1 sl1 it2 sl2} $moves {
-	    $self history-add $it1 $sl1 $it2 $sl2
-	}
-	# save the list of moves that needed to get done
-	set options(-deal-history) [$self history-save]
-	$self history-empty
-	
-	# run through history in play order
-	# verify that each proposed unplay move
-	# is infact a legal move
-	foreach move [dict get $options(-deal-history) items] {
-	    foreach {it1 sl1 it2 sl2} $move break
-	    set n1 [$self item-to-name $it1]
-	    set n2 [$self item-to-name $it2]
-	    if { ! [$self can-play $sl1]} {
-		puts "proposed move sl1 $sl1 cannot play"
-		break
-	    } elseif { ! [$self can-play $sl2]} {
-		puts "proposed move sl2 $sl2 cannot play"
-		break
-	    } elseif { ! [$self match $n1 $n2]} {
-		puts "proposed move mismatches $n1 and $n2"
-		break
-	    } else {
-		# remove the tiles from play
-		$self move-redo $it1 $sl1 $it2 $sl2
-		# keep history
-		$self history-add $it1 $sl1 $it2 $sl2
+	    lappend moves $name2 $slot2
+	    
+	    # test for forward playability
+	    if { ! [$self can-play $slot1]} {
+		error "proposed move slot1 $slot1 cannot play"
+	    } elseif { ! [$self can-play $slot2]} {
+		error "proposed move slot2 $slot2 cannot play"
+	    } elseif { ! [$self match $name1 $name2]} {
+		error "proposed move mismatches $nm1 and $nm2"
 	    }
 	}
-	# if we went all the way through
-	if {[$self history-get-count] == 72} {
-	    # then undo everything
-	    while {[$self history-get-count] > 0} {
-		$self history-undo
-	    }
-	} else {
-	    # highlight the problem
-	    puts "$it1 {$sl1} $n1 and $it2 {$sl2} $n2 at move [$self history-get-count]"
-	    $win itemconfigure $it1 -image [$self select-image $it1]
-	    $win itemconfigure $it2 -image [$self select-image $it2]
-	    update
+
+	# make and save the history of the play
+	# this allows the construction of the deal to be played in reverse
+	# at the start of each game by redoing moves
+	$self history-empty
+	foreach {name1 slot1 name2 slot2} $moves {
+	    $self history-add $name1 $slot1 $name2 $slot2
 	}
+	$self history-restore [$self history-save-reversed]
+	
 	# raise slots in render order
 	$self raise-in-render-order
 	
@@ -1073,7 +2000,7 @@ snit::widgetadaptor mahjong::canvas {
 	$self adjust-window
 	
 	# compute
-	set options(-remaining-tiles) [llength $options(-items)]
+	set options(-remaining-tiles) [llength [$self get-remaining-tiles]]
 	set options(-remaining-moves) [$self count-moves]
     }
     
@@ -1089,28 +2016,16 @@ snit::widgetadaptor mahjong::canvas {
 	set slots [$self find-all-can-play $slots]
 	for {set i 0} {$i < [llength $slots]} {incr i} {
 	    set si [lindex $slots $i]
-	    set ni [$self slot-to-name $si]
+	    set ni [$self get-slot $si]
 	    for {set j [expr {$i+1}]} {$j < [llength $slots]} {incr j} {
 		set sj [lindex $slots $j]
-		set nj [$self slot-to-name $sj]
+		set nj [$self get-slot $sj]
 		if {[$self match $ni $nj]} {
 		    lappend moves [list $si $sj]
 		}
 	    }
 	}
 	return $moves
-    }
-    
-    method find-match-index {it1 items} {
-	set n1 [$self item-to-name $it1]
-	set index 0
-	foreach it2 $items {
-	    if {[$self match $n1 [$self item-to-name $it2]]} {
-		return $index
-	    }
-	    incr index
-	}
-	error "failed to find a matching tile to $n1"
     }
     
     method find-can-unplay {slots {donotblock {}}} {
@@ -1135,95 +2050,134 @@ snit::widgetadaptor mahjong::canvas {
 	    expr {[$self can-play $slot] ? $slot : [continue]}
 	}]
     }
-    
-    method place-tile {xyz it} {
-	set twid [$self cget -width]
-	set thgt [$self cget -height]
-	dict set data item-to-slot $it $xyz
-	set xstep [expr {$twid/10}]
-	set ystep [expr {$thgt/10}]
-	set twid [expr {$twid-$xstep}]
-	set thgt [expr {$thgt-$ystep}]
-	$self set-slot $xyz $it; # this is where the tile gets added to the slots in play
-	foreach {x y z} $xyz break
-	set x [expr {(3.5+$x)*$twid + $z*$xstep}]
-	set y [expr {(0.5+$y)*$thgt - $z*$ystep}]
-	$win coords $it $x $y
-	$win itemconfigure $it -image [$self normal-image $it] -state normal
-	$win bind $it <Enter> [list {*}[mymethod enter] $it]
-	$win bind $it <Leave> [list {*}[mymethod leave] $it]
+    ##
+    ##
+    ##
+    method draw {slot name} {
+	set twid [$self cget -width];   # tile width
+	set thgt [$self cget -height];  # tile height
+	set xstep [expr {$twid/10.0}];  # offset for 3d border
+	set ystep [expr {$thgt/10.0}];  # offset for 3d border
+	set fwid [expr {$twid-$xstep}];	# tile face width
+	set fhgt [expr {$thgt-$ystep}];	# tile face height
+	foreach {x y z} $slot break;	# slot
+	set x [expr {(3.5+$x)*$fwid + $z*$xstep}]
+	set y [expr {(0.5+$y)*$fhgt - $z*$ystep}]
+	if {[$win find withtag $name] eq {}} {
+	    $tiles draw $win $name 0 0 1
+	    set scale [expr {$twid/64.0}]
+	    $win scale $name 0 0 $scale $scale
+	    foreach id [$win find withtag $name] {
+		if {[lsearch [$win itemcget $id -tags] scale-width] >= 0} {
+		    $win itemconfigure $id -width [expr {$scale*[$win itemcget $id -width]}]
+		}
+	    }
+	    $win move $name $x $y
+	} elseif {[dict get $data coords $name] ne [list $x $y]} {
+	    foreach {ox oy} [dict get $data coords $name] break
+	    $win move $name [expr {$x-$ox}] [expr {$y-$oy}]
+	}
+	dict set data coords $name [list $x $y]
+    }
+    method show {slot name tag} {
+	foreach id [$win find withtag $name] {
+	    set tags [$win itemcget $id -tags]
+	    switch $tag {
+		plain -
+		selected {
+		    if {[lsearch $tags $tag] >= 0 || [lsearch $tags face] >= 0} {
+			$win itemconfigure $id -state normal
+		    } else {
+			$win itemconfigure $id -state hidden
+		    }
+		}
+		blank {
+		    if {[lsearch $tags plain] >= 0} {
+			$win itemconfigure $id -state normal
+		    } else {
+			$win itemconfigure $id -state hidden
+		    }
+		}
+	    }
+	}
+    }
+    method hide {slot name} {
+ 	$win itemconfigure $name -state hidden
+    }
+    ##
+    ##
+    ##
+    method tile-place {slot name} {
+	#puts "$self tile-place $slot $name $draw"
+	$self set-slot $slot $name
+	$self set-name $name $slot
+	$self draw $slot $name
+	$self show $slot $name plain
+	$win bind $name <Enter> [list {*}[mymethod enter] $slot $name]
+	$win bind $name <Leave> [list {*}[mymethod leave] $slot $name]
 	$self raise-in-render-order
     }
     
-    method unplace-tile {xyz it} {
- 	dict set data item-to-slot $it {}
-	$self set-empty $xyz
- 	$win coords $it 0 0
- 	$win itemconfigure $it -image {} -state hidden
- 	$win bind $it <Enter> {}
- 	$win bind $it <Leave> {}
+    method tile-unplace {slot name} {
+ 	$self set-name $name {}
+	$self set-empty $slot
+	$self hide $slot $name
     }
-    
+    method tile-is-placed {slot name} {
+	return [expr {[$self get-slot $slot] eq $name}]
+    }
     ##
     ## tile mouse event handlers
     ## mostly concerned with selected tile management
+    ## set-selected {slot name}
     ##
     method get-selected {} { return [dict get $data selected] }
     method is-selected {} { return [expr {[$self get-selected] ne {}}] }
-    
     method clear-selected {} {
-	if {[$self is-selected]} {
-	    foreach {it xyz name} [$self get-selected] break
-	    $win itemconfigure $it -image [$self normal-image $it]
-	}
+	if {[$self is-selected]} { $self show {*}[$self get-selected] plain }
 	dict set data selected {}
     }
     method set-selected {args} { 
 	$self clear-selected
-	if {$args ne {}} {
-	    foreach {it xyz name} $args break
-	    $win itemconfigure $it -image [$self select-image $it]
-	}
+	if {$args ne {}} { $self show {*}$args selected	}
 	dict set data selected $args
     }
     
-    method enter {it} { $win bind $it <Button-1> [list {*}[mymethod button] $it] }
-    method leave {it} {	$win bind $it <Button-1> {} }
+    method enter {slot name} { $win bind $name <Button-1> [list {*}[mymethod button] $slot $name] }
+    method leave {slot name} { $win bind $name <Button-1> {} }
     
-    method button {it1} {
+    method button {slot1 name1} {
+	if {[dict get $data paused]} return
 	# if the tile is playable
-	set xyz1 [$self item-to-slot $it1]
-	set name1 [$self item-to-name $it1]
-	if {[$self can-play $xyz1]} {
+	if {[$self can-play $slot1]} {
 	    # if there's an already selected tile
 	    if {[$self is-selected]} {
 		# get the selected tile and clear the selection
-		foreach {it2 xyz2 name2} [$self get-selected] break
+		foreach {slot2 name2} [$self get-selected] break
 		$self clear-selected
-		# if it's the same tile
-		if {$it1 == $it2} {
+		if {$name1 eq $name2} {
+		    # if it's the same tile
 		    # just return, we've cancelled the selection
 		    # and undone the selected image
-		    return;
-		}
-		# if it's a match to the previously selected tile
-		if {[$self match $name1 $name2]} {
+		} elseif {[$self match $name1 $name2]} {
+		    # if it's a match to the previously selected tile
 		    # start counting time
 		    $self start-timer
 		    # remove the tiles from play
-		    $self move-redo $it1 $xyz1 $it2 $xyz2
+		    $self move-redo $name1 $slot1 $name2 $slot2
 		    # keep history
-		    $self history-add $it1 $xyz1 $it2 $xyz2
+		    $self history-add $name1 $slot1 $name2 $slot2
 		    # keep score
 		    after 0 [list {*}[mymethod update-score]]
-		    return
+		} else {
+		    # select the new tile in place of the old one
+		    $self set-selected $slot1 $name1
 		}
-		# select the new tile in place of the old one
-		$self set-selected $it1 $xyz1 $name1
 	    } else {
 		# just select the new tile
-		$self set-selected $it1 $xyz1 $name1
+		$self set-selected $slot1 $name1
 	    }
+	    $self raise-in-render-order
 	}
     }
 }
@@ -1311,8 +2265,11 @@ set mymap {
 # with the layout and 
 # the tile images for the game
 # this is a tile width that works at 2560x1700 
+
 set width 165
 pack [mahjong::canvas .c -background \#323657 \
 	  -layout [mahjong::layout ::layout -map $mymap] \
-	  -tiles [mahjong::tiles ::tiles -svg postmodern.svg -png postmodern-$width.png -width $width] {*}$argv \
+	  -tiles [mahjong::tiles ::tiles -svg postmodern.svg -width $width] {*}$argv \
+	  -prefs [mahjong::prefs ::prefs] \
 	 ] -fill both -expand true
+
