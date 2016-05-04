@@ -40,29 +40,19 @@
       <path id="path3511" stroke="#00f" stroke-width="3" d="m60 74.19c0 1.55-1.22 2.81-2.72 2.81h-43.56c-1.5 0-2.72-1.26-2.72-2.81v-67.38c0-1.55 1.22-2.81 2.72-2.81h43.56c1.5 0 2.72 1.26 2.72 2.81v67.38z" fill="#fff"/>
     </g>
     <!-- bamboos -->
-  <g id="bamboo" fill="none" stroke-width="2">
-    <ellipse cx="5.5" cy="2.7" rx="4.5" ry="1.7"/>
-    <ellipse cx="5.5" cy="13.5" rx="4.5" ry="1.7"/>
-    <ellipse cx="5.5" cy="24.3" rx="4.5" ry="1.7"/>
-    <line x1="2.8" y1="4.05" x2="2.8" y2="12.15"/>
-    <line x1="2.8" y1="14.85" x2="2.8" y2="22.95"/>
-    <line x1="8.2" y1="4.05" x2="8.2" y2="12.15"/>
-    <line x1="8.2" y1="14.85" x2="8.2" y2="22.95"/>
-  </g>
-    <use id="green-bamboo" stroke="#006C00" xlink:href="#bamboo"/>
-    <use id="red-bamboo" stroke="#9C0000" xlink:href="#bamboo"/>
+    <path id="bamboo" fill="none" stroke-width="1.75" d="m 5.50,12.50 c  1.50,0.00 4.00,-0.50 4.00,1.00  0.00,1.50 -2.50,1.00 -4.00,1.00  -1.50,0.00 -4.00,0.50 -4.00,-1.00  0.00,-1.50 2.50,-1.00 4.00,-1.00 z  m 0.00,-11.00 c  1.50,0.00 4.00,-0.50 4.00,1.00  0.00,1.50 -2.50,1.00 -4.00,1.00  -1.50,0.00 -4.00,0.50 -4.00,-1.00  0.00,-1.50 2.50,-1.00 4.00,-1.00 z  m 0.00,22.00 c  1.50,0.00 4.00,-0.50 4.00,1.00  0.00,1.50 -2.50,1.00 -4.00,1.00  -1.50,0.00 -4.00,0.50 -4.00,-1.00  0.00,-1.50 2.50,-1.00 4.00,-1.00 z  m -2.00,-20.00 l 0.00,9.00 m 4.00,-9.00 l 0.00,9.00 m -4.00,2.00 l 0.00,9.00 m 4.00,-9.00 l 0.00,9.00"/>
+    <path id="bamboo-rgt" fill="none" stroke-width="1.75" d="m 5.87,12.57 c  1.39,0.56 3.90,1.03 3.33,2.43  -0.56,1.39 -2.69,-0.01 -4.08,-0.57  -1.39,-0.56 -3.90,-1.03 -3.33,-2.43  0.56,-1.39 2.69,0.01 4.08,0.57 z  m 4.12,-10.20 c  1.39,0.56 3.90,1.03 3.33,2.43  -0.56,1.39 -2.69,-0.01 -4.08,-0.57  -1.39,-0.56 -3.90,-1.03 -3.33,-2.43  0.56,-1.39 2.69,0.01 4.08,0.57 z  m -8.24,20.40 c  1.39,0.56 3.90,1.03 3.33,2.43  -0.56,1.39 -2.69,-0.01 -4.08,-0.57  -1.39,-0.56 -3.90,-1.03 -3.33,-2.43  0.56,-1.39 2.69,0.01 4.08,0.57 z  m 5.64,-19.29 l -3.37,8.34 m 7.08,-6.85 l -3.37,8.34 m -4.46,0.36 l -3.37,8.34 m 7.08,-6.85 l -3.37,8.34"/>
+    <path id="bamboo-lft" fill="none" stroke-width="1.75" d="m 5.13,12.57 c  1.39,-0.56 3.52,-1.96 4.08,-0.57  0.56,1.39 -1.94,1.86 -3.33,2.43  -1.39,0.56 -3.52,1.96 -4.08,0.57  -0.56,-1.39 1.94,-1.86 3.33,-2.43 z  m -4.12,-10.20 c  1.39,-0.56 3.52,-1.96 4.08,-0.57  0.56,1.39 -1.94,1.86 -3.33,2.43  -1.39,0.56 -3.52,1.96 -4.08,0.57  -0.56,-1.39 1.94,-1.86 3.33,-2.43 z  m 8.24,20.40 c  1.39,-0.56 3.52,-1.96 4.08,-0.57  0.56,1.39 -1.94,1.86 -3.33,2.43  -1.39,0.56 -3.52,1.96 -4.08,0.57  -0.56,-1.39 1.94,-1.86 3.33,-2.43 z  m -9.35,-17.79 l 3.37,8.34 m 0.34,-9.84 l 3.37,8.34 m -2.96,3.35 l 3.37,8.34 m 0.34,-9.84 l 3.37,8.34"/>
     <!-- coins -->
-    <g id="justdots" stroke-width="1.0" fill="none">
-      <circle cx="9.0" cy="9.0" r="8.50"/>
-      <circle cx="9.0" cy="9.0" r="7.20"/>
-      <circle cx="9.0" cy="9.0" r="5.15"/>
-      <circle cx="12.6" cy="9.0" r="3.6"/>
-      <circle cx="9.0" cy="12.6" r="3.6"/>
-      <circle cx="5.4" cy="9.0" r="3.6"/>
-      <circle cx="9.0" cy="5.4" r="3.6"/>
+    <g id="coin" fill="none">
+      <circle cx="9.0" cy="9.0" r="8.50" stroke-width="1.3"/>
+      <circle cx="9.0" cy="9.0" r="7.20" stroke-width="1.2"/>
+      <circle cx="9.0" cy="9.0" r="5.15" stroke-width="1.1"/>
+      <circle cx="12.6" cy="9.0" r="3.6" stroke-width="1.0"/>
+      <circle cx="9.0" cy="12.6" r="3.6" stroke-width="1.0"/>
+      <circle cx="5.4" cy="9.0" r="3.6" stroke-width="1.0"/>
+      <circle cx="9.0" cy="5.4" r="3.6" stroke-width="1.0"/>
     </g>
-    <use id="dots"  stroke="#10106C" xlink:href="#justdots"/>
-    <use id="dots2" stroke="#9C0000" xlink:href="#justdots"/>
     <!-- characters -->
     <g id="ten-thousand" fill="#BA0000">
       <path id="path3431" d="m 41.6,72.0384 c -1.2925,-1.6198 -2.4244,-3.0449 -2.5153,-3.167 -0.1561,-0.2096 -0.1527,-0.2377 0.061,-0.506 l 0.2265,-0.284 1.8388,0.8983 c 1.0113,0.4941 2.1883,1.0221 2.6155,1.1733 0.7605,0.2693 0.7809,0.2711 0.9829,0.088 0.412,-0.3728 1.1899,-1.6656 1.3877,-2.3062 0.2793,-0.9041 0.2705,-1.8582 -0.022,-2.4389 -0.2676,-0.5306 -0.6449,-0.7431 -1.575,-0.8869 -0.7755,-0.1198 -3.5996,-0.3431 -3.6538,-0.2888 -0.021,0.021 0.5676,0.7674 1.308,1.6588 0.7403,0.8914 1.3261,1.6207 1.3017,1.6207 -0.024,0 -0.9763,-0.3584 -2.1154,-0.7965 -1.139,-0.4381 -2.1032,-0.7766 -2.1425,-0.7523 -0.039,0.024 -1.2481,0.4469 -2.6861,0.939 l -2.6145,0.8948 -0.1487,-0.2875 c -0.082,-0.1582 -0.1487,-0.3299 -0.1487,-0.3816 0,-0.052 0.765,-0.7392 1.7,-1.5276 0.935,-0.7884 1.7,-1.4614 1.7,-1.4955 0,-0.034 -1.3613,-0.092 -3.025,-0.1288 -1.6638,-0.037 -3.8304,-0.096 -4.8147,-0.1312 l -1.7897,-0.064 0.068,0.5908 c 0.037,0.3249 0.2154,1.7948 0.3957,3.2664 l 0.3279,2.6755 -0.3504,0.097 c -0.1927,0.053 -0.3688,0.078 -0.3913,0.056 -0.022,-0.023 -0.6176,-1.54 -1.3225,-3.3723 l -1.2815,-3.3313 -0.4831,-0.032 c -0.7553,-0.049 -2.6068,0.153 -3.4332,0.3752 -0.4125,0.1109 -0.8175,0.202 -0.9,0.2025 -0.1586,0 -1.0605,-1.569 -0.9594,-1.6701 0.032,-0.032 2.2404,-0.2455 4.9077,-0.4744 2.6673,-0.229 4.877,-0.4437 4.9104,-0.4771 0.033,-0.033 -0.033,-0.5926 -0.1473,-1.2427 -0.4706,-2.6738 -0.7386,-5.511 -0.5803,-6.1425 0.055,-0.22 0.1017,-0.2365 0.5748,-0.2041 0.4907,0.034 2.5941,-0.1399 3.0691,-0.2533 0.2177,-0.052 0.225,-0.03 0.225,0.6758 0,0.4012 -0.063,1.0023 -0.1399,1.3358 -0.077,0.3335 -0.2139,1.2364 -0.3043,2.0064 -0.203,1.7282 -0.1989,1.7019 -0.4411,2.7998 -0.1092,0.4948 -0.1909,0.9055 -0.1816,0.9125 0.014,0.011 4.0582,-0.3371 4.1439,-0.3563 0.015,-0 0.02,-1.5022 0.011,-3.331 -0.012,-2.5777 0.016,-3.4599 0.1269,-3.925 l 0.1428,-0.6 0.628,-0.085 c 0.3455,-0.046 0.6559,-0.057 0.6898,-0.023 0.034,0.034 0.05,1.8154 0.037,3.9589 l -0.025,3.8972 0.7813,-0.062 c 0.4296,-0.034 1.0512,-0.09 1.3812,-0.1243 l 0.6,-0.062 0.068,-0.45 c 0.037,-0.2475 0.071,-0.765 0.075,-1.15 0.01,-0.6684 0.1145,-1.2668 0.3036,-1.7 0.1229,-0.2814 0.1975,-0.8221 0.2983,-2.1631 0.05,-0.6669 0.1511,-1.2859 0.2365,-1.4511 0.082,-0.1585 0.1801,-0.5351 0.2181,-0.8369 0.038,-0.3019 0.076,-0.5567 0.085,-0.5663 0.032,-0.034 1.8191,-0.332 1.9953,-0.3323 0.1696,0 2.1696,1.8458 2.1696,2.0027 0,0.04 -0.1365,0.1293 -0.3034,0.1984 -0.6061,0.2511 -1.3577,1.3246 -2.4428,3.4892 -0.6667,1.3301 -1.2708,2.7257 -1.2073,2.7892 0.03,0.03 1.01,-0.022 2.1787,-0.1141 2.7218,-0.2151 3.4146,-0.2115 3.9248,0.021 0.5962,0.2714 1.6753,1.1788 3.8779,3.2608 l 1.978,1.8697 -0.2222,0.3666 c -2.5483,4.2055 -5.7626,7.69 -7.8357,8.4946 -1.0336,0.4011 -0.7316,0.6392 -3.348,-2.6397 z m -10.6598,-19.7074 c -0.1666,-0.2095 -0.3337,-0.4327 -0.3712,-0.4959 -0.042,-0.071 0.2081,-0.2873 0.6564,-0.567 3.8456,-2.3997 6.7832,-6.0572 6.1267,-7.6284 l -0.1451,-0.3473 -0.4285,0.2179 c -2.3749,1.2076 -4.3017,3.6983 -4.8122,6.2205 -0.1189,0.5873 -0.1402,0.6192 -0.4146,0.6192 l -0.2892,0 -1.0783,-4.3 c -0.5931,-2.365 -1.0797,-4.3278 -1.0813,-4.3618 -0,-0.034 0.7058,0.6509 1.5721,1.5219 l 1.575,1.5837 2.4,-1.8413 c 1.32,-1.0127 2.4587,-1.8438 2.5305,-1.8469 0.1611,-0.01 5.2195,3.5762 5.2195,3.6972 0,0.048 -0.063,0.1232 -0.1398,0.1672 -0.6376,0.3649 -4.1602,3.8503 -4.1602,4.1163 0,0.047 0.3487,0.1091 0.775,0.1384 1.0054,0.069 2.1722,0.4648 3.1529,1.0692 l 0.7779,0.4794 -1.8279,0.053 c -2.6758,0.078 -4.8196,0.49 -9.5813,1.842 -0.091,0.026 -0.2762,-0.1109 -0.4564,-0.3375 z"/>
@@ -141,64 +131,64 @@
       <path id="path4334" stroke="#10106C" stroke-width=".75" d="m55 40.5c0 10.8-8.7 19.5-19.5 19.5s-19.5-8.7-19.5-19.5 8.7-19.5 19.5-19.5 19.5 8.7 19.5 19.5z" fill="none"/>
     </g>
     <g id="two-coins">
-      <use id="use3882" xlink:href="#dots" transform="translate(24.5 16.5) scale(1.22)"/>
-      <use id="use3884" xlink:href="#dots" transform="translate(24.5 42.5) scale(1.22)"/>
+      <use id="use3882" xlink:href="#coin" stroke="#10106C" transform="translate(24.5 16.5) scale(1.22)"/>
+      <use id="use3884" xlink:href="#coin" stroke="#10106C" transform="translate(24.5 42.5) scale(1.22)"/>
     </g>
     <g id="three-coins">
-      <use id="use3890" xlink:href="#dots"  transform="translate(16.5 12.5)"/>
-      <use id="use3894" xlink:href="#dots2" transform="translate(26.5 31.5)"/>
-      <use id="use3898" xlink:href="#dots"  transform="translate(36.5 50.5)"/>
+      <use id="use3890" xlink:href="#coin" stroke="#10106C"  transform="translate(16.5 12.5)"/>
+      <use id="use3894" xlink:href="#coin" stroke="#9C0000" transform="translate(26.5 31.5)"/>
+      <use id="use3898" xlink:href="#coin" stroke="#10106C"  transform="translate(36.5 50.5)"/>
     </g>
     <g id="four-coins">
-      <use id="use3902" xlink:href="#dots" transform="translate(17 15) scale(.94)"/>
-      <use id="use3904" xlink:href="#dots" transform="translate(17 49) scale(.94)"/>
-      <use id="use3910" xlink:href="#dots" transform="translate(37 15) scale(.94)"/>
-      <use id="use3912" xlink:href="#dots" transform="translate(37 49) scale(.94)"/>
+      <use id="use3902" xlink:href="#coin" stroke="#10106C" transform="translate(17 15) scale(.94)"/>
+      <use id="use3904" xlink:href="#coin" stroke="#10106C" transform="translate(17 49) scale(.94)"/>
+      <use id="use3910" xlink:href="#coin" stroke="#10106C" transform="translate(37 15) scale(.94)"/>
+      <use id="use3912" xlink:href="#coin" stroke="#10106C" transform="translate(37 49) scale(.94)"/>
     </g>
     <g id="five-coins">
-      <use id="use3918" xlink:href="#dots"  transform="translate(17.5 13.5) scale(.88)"/>
-      <use id="use3920" xlink:href="#dots"  transform="translate(17.5 51.5) scale(.88)"/>
-      <use id="use3926" xlink:href="#dots2" transform="translate(27.5 32.5) scale(.88)"/>
-      <use id="use3930" xlink:href="#dots"  transform="translate(37.5 13.5) scale(.88)"/>
-      <use id="use3932" xlink:href="#dots"  transform="translate(37.5 51.5) scale(.88)"/>
+      <use id="use3918" xlink:href="#coin" stroke="#10106C"  transform="translate(17.5 13.5) scale(.88)"/>
+      <use id="use3920" xlink:href="#coin" stroke="#10106C"  transform="translate(17.5 51.5) scale(.88)"/>
+      <use id="use3926" xlink:href="#coin" stroke="#9C0000" transform="translate(27.5 32.5) scale(.88)"/>
+      <use id="use3930" xlink:href="#coin" stroke="#10106C"  transform="translate(37.5 13.5) scale(.88)"/>
+      <use id="use3932" xlink:href="#coin" stroke="#10106C"  transform="translate(37.5 51.5) scale(.88)"/>
     </g>
     <g id="six-coins">
-      <use id="use3938" xlink:href="#dots" transform="translate(20 14) scale(.72)"/>
-      <use id="use3940" xlink:href="#dots2" transform="translate(20 37) scale(.72)"/>
-      <use id="use3942" xlink:href="#dots2" transform="translate(20 54) scale(.72)"/>
-      <use id="use3950" xlink:href="#dots" transform="translate(38 14) scale(.72)"/>
-      <use id="use3952" xlink:href="#dots2" transform="translate(38 37) scale(.72)"/>
-      <use id="use3954" xlink:href="#dots2" transform="translate(38 54) scale(.72)"/>
+      <use id="use3938" xlink:href="#coin" stroke="#10106C" transform="translate(20 14) scale(.72)"/>
+      <use id="use3940" xlink:href="#coin" stroke="#9C0000" transform="translate(20 37) scale(.72)"/>
+      <use id="use3942" xlink:href="#coin" stroke="#9C0000" transform="translate(20 54) scale(.72)"/>
+      <use id="use3950" xlink:href="#coin" stroke="#10106C" transform="translate(38 14) scale(.72)"/>
+      <use id="use3952" xlink:href="#coin" stroke="#9C0000" transform="translate(38 37) scale(.72)"/>
+      <use id="use3954" xlink:href="#coin" stroke="#9C0000" transform="translate(38 54) scale(.72)"/>
     </g>
     <g id="seven-coins">
-      <use id="use3962" xlink:href="#dots" transform="translate(15 10) scale(.72)"/>
-      <use id="use3964" xlink:href="#dots2" transform="translate(20 41) scale(.72)"/>
-      <use id="use3966" xlink:href="#dots2" transform="translate(20 58) scale(.72)"/>
-      <use id="use3968" xlink:href="#dots" transform="translate(29 17) scale(.72)"/>
-      <use id="use3970" xlink:href="#dots" transform="translate(43 24) scale(.72)"/>
-      <use id="use3978" xlink:href="#dots2" transform="translate(38 41) scale(.72)"/>
-      <use id="use3980" xlink:href="#dots2" transform="translate(38 58) scale(.72)"/>
+      <use id="use3962" xlink:href="#coin" stroke="#10106C" transform="translate(15 10) scale(.72)"/>
+      <use id="use3964" xlink:href="#coin" stroke="#9C0000" transform="translate(20 41) scale(.72)"/>
+      <use id="use3966" xlink:href="#coin" stroke="#9C0000" transform="translate(20 58) scale(.72)"/>
+      <use id="use3968" xlink:href="#coin" stroke="#10106C" transform="translate(29 17) scale(.72)"/>
+      <use id="use3970" xlink:href="#coin" stroke="#10106C" transform="translate(43 24) scale(.72)"/>
+      <use id="use3978" xlink:href="#coin" stroke="#9C0000" transform="translate(38 41) scale(.72)"/>
+      <use id="use3980" xlink:href="#coin" stroke="#9C0000" transform="translate(38 58) scale(.72)"/>
     </g>
     <g id="eight-coins">
-      <use id="use3990" xlink:href="#dots" transform="translate(21 10) scale(.72)"/>
-      <use id="use3992" xlink:href="#dots" transform="translate(21 26) scale(.72)"/>
-      <use id="use3994" xlink:href="#dots" transform="translate(21 42) scale(.72)"/>
-      <use id="use3996" xlink:href="#dots" transform="translate(21 58) scale(.72)"/>
-      <use id="use4006" xlink:href="#dots" transform="translate(37 10) scale(.72)"/>
-      <use id="use4008" xlink:href="#dots" transform="translate(37 26) scale(.72)"/>
-      <use id="use4010" xlink:href="#dots" transform="translate(37 42) scale(.72)"/>
-      <use id="use4012" xlink:href="#dots" transform="translate(37 58) scale(.72)"/>
+      <use id="use3990" xlink:href="#coin" stroke="#10106C" transform="translate(21 10) scale(.72)"/>
+      <use id="use3992" xlink:href="#coin" stroke="#10106C" transform="translate(21 26) scale(.72)"/>
+      <use id="use3994" xlink:href="#coin" stroke="#10106C" transform="translate(21 42) scale(.72)"/>
+      <use id="use3996" xlink:href="#coin" stroke="#10106C" transform="translate(21 58) scale(.72)"/>
+      <use id="use4006" xlink:href="#coin" stroke="#10106C" transform="translate(37 10) scale(.72)"/>
+      <use id="use4008" xlink:href="#coin" stroke="#10106C" transform="translate(37 26) scale(.72)"/>
+      <use id="use4010" xlink:href="#coin" stroke="#10106C" transform="translate(37 42) scale(.72)"/>
+      <use id="use4012" xlink:href="#coin" stroke="#10106C" transform="translate(37 58) scale(.72)"/>
     </g>
     <g id="nine-coins">
-      <use id="use4022" xlink:href="#dots" transform="translate(14 14) scale(.72)"/>
-      <use id="use4024" xlink:href="#dots2" transform="translate(14 34) scale(.72)"/>
-      <use id="use4026" xlink:href="#dots" transform="translate(14 54) scale(.72)"/>
-      <use id="use4034" xlink:href="#dots" transform="translate(29 14) scale(.72)"/>
-      <use id="use4036" xlink:href="#dots2" transform="translate(29 34) scale(.72)"/>
-      <use id="use4038" xlink:href="#dots" transform="translate(29 54) scale(.72)"/>
-      <use id="use4046" xlink:href="#dots" transform="translate(44 14) scale(.72)"/>
-      <use id="use4048" xlink:href="#dots2" transform="translate(44 34) scale(.72)"/>
-      <use id="use4050" xlink:href="#dots" transform="translate(44 54) scale(.72)"/>
+      <use id="use4022" xlink:href="#coin" stroke="#10106C" transform="translate(14 14) scale(.72)"/>
+      <use id="use4024" xlink:href="#coin" stroke="#9C0000" transform="translate(14 34) scale(.72)"/>
+      <use id="use4026" xlink:href="#coin" stroke="#10106C" transform="translate(14 54) scale(.72)"/>
+      <use id="use4034" xlink:href="#coin" stroke="#10106C" transform="translate(29 14) scale(.72)"/>
+      <use id="use4036" xlink:href="#coin" stroke="#9C0000" transform="translate(29 34) scale(.72)"/>
+      <use id="use4038" xlink:href="#coin" stroke="#10106C" transform="translate(29 54) scale(.72)"/>
+      <use id="use4046" xlink:href="#coin" stroke="#10106C" transform="translate(44 14) scale(.72)"/>
+      <use id="use4048" xlink:href="#coin" stroke="#9C0000" transform="translate(44 34) scale(.72)"/>
+      <use id="use4050" xlink:href="#coin" stroke="#10106C" transform="translate(44 54) scale(.72)"/>
     </g>
     <!-- winds -->
     <path id="north-wind" d="m56.3 54.7c-2-0.9-11.8 3.3-11.8 3.3l0.5-20.7s5.3-4.3 9.6-1.7l-1.2-5c-1.4-0.2-8.4 5.5-8.4 5.5s-0.6-18.8 4.8-19.9-8.9-2.6-9.7-2.2c-0.4 0.2-0.4 13.8-0.2 27.1-3.2 3.1-5.9 6.2-7.1 7.3l0.4-28.5s-4.7-2.6-5.8-1.4l0.2 14.8c-0.3-0.5-0.7-0.9-1-1.3-1-1.3-6.1-4.2-6.1-4.2s1.7 5.6 2.5 6.6c0.7 0.9 3 2.9 4.6 2.2l0.2 16.5c-3.4 3-7.9 6.8-8.5 5.4-1.5-3.2-4.7-3-5.2-1.5-0.5 1.6 4.2 10.2 5.8 10.1 0.8-0.1 4.4-4.9 8-10l0.1 5.3c1.6 2.1 3.8 0.5 4.6-0.7l0.3-11c1.1-1.6 4-4.5 7.1-7.9 0.2 12.1 0.3 22.8 0.3 22.8 4.9-5.2 16.7-4 16.7-4l-0.7-6.9z" fill="#101040"/>
@@ -243,8 +233,8 @@
       <use id="use3818" xlink:href="#ten-thousand"/>
     </g>
     <g id="four-character">
-      <path id="path3338" fill="#20208C" d="m 25.818123,30.912984 c -2.211847,-6.377011 -4.455727,-12.765894 -6.749968,-19.099525 1.804806,0.328021 3.609078,0.793593 5.401344,1.222708 0.534828,1.969367 1.079104,3.936789 1.745637,5.860782 0.816432,2.892746 1.468991,5.8292 2.27717,8.723786 1.219714,-0.204525 2.435293,-0.547363 3.585128,-1.003039 -0.185523,-2.77919 -0.401979,-5.580822 -1.035256,-8.300649 -0.0057,-0.980315 -0.82239,-1.572856 -1.50191,-1.590258 1.039683,-0.351766 2.107693,-0.709692 3.050318,-1.278651 0.548799,-0.180343 0.345388,1.292829 0.543306,1.719915 0.525761,2.992595 1.032706,5.991475 1.6682,8.962552 0.888116,-0.211514 2.812635,0.170422 2.603555,-1.207201 0.155057,-3.128748 0.368932,-6.262908 0.344202,-9.394852 0.421779,-0.525592 1.753187,0.492605 2.475083,0.704846 0.528951,0.395891 2.638885,0.811059 1.266604,1.373634 -1.063372,1.056066 -1.129591,2.68561 -1.412053,4.074744 -0.190629,1.232691 -0.312862,2.474518 -0.40314,3.718224 1.078493,0.01551 2.265708,-0.08248 3.199927,0.539819 0.39455,0.820269 1.303105,1.837218 0.758233,2.759601 -0.494061,0.287031 -1.438391,1.655029 -1.757554,1.192387 0.345614,-1.352511 -1.2506,-1.563765 -2.215407,-1.477913 -3.652432,0.08552 -7.201717,1.119948 -10.690055,2.117912 -0.992405,0.297848 -1.976061,0.623541 -2.961248,0.944161 -0.06404,-0.187659 -0.128094,-0.375334 -0.192116,-0.562983 z" />
-      <path id="path3340" fill="#20208C" d="m 41.905661,29.775 c 0.202096,-1.224459 0.920436,-2.252539 1.326804,-3.408391 1.489007,-2.931222 2.02425,-6.221793 2.430271,-9.450958 0.06488,-0.39674 0.130701,-0.793854 -0.301275,-0.992173 -1.061392,-0.904518 -2.580293,-0.580984 -3.861462,-0.666518 -3.532996,-0.0626 -6.992078,0.739569 -10.447633,1.348969 -1.284726,0.290669 -2.590695,0.521586 -3.858998,0.903504 -0.487737,-0.05334 -1.84322,0.927431 -1.593808,-0.0282 0.06268,-1.008172 0.127508,-2.016833 0.250447,-3.019772 3.99188,-1.175848 8.089496,-2.037018 12.231804,-2.458966 3.618295,-0.294722 7.426548,-0.350789 10.8199,1.122819 1.195518,0.519775 2.210325,1.393053 2.920777,2.482107 -1.569783,4.715209 -4.132254,9.164547 -7.703122,12.646703 -0.735549,0.666364 -1.451054,1.365804 -2.257301,1.945877 -0.01197,-0.143407 0.02464,-0.284197 0.0436,-0.424997 z" />
+      <path id="path3338" fill="#20208C" d="m 25.8,30.9 c -2.2,-6.4 -4.5,-12.8 -6.75,-19.1 1.8,0.3 3.6,0.8 5.4,1.2 0.5,1.97 1.08,3.9 1.75,5.86 0.82,2.89 1.47,5.82 2.28,8.72 1.22,-0.20 2.44,-0.55 3.58,-1.00 -0.19,-2.78 -0.40,-5.58 -1.04,-8.30 -0.01,-0.98 -0.82,-1.57 -1.50,-1.59 1.04,-0.35 2.11,-0.71 3.05,-1.27 0.54,-0.18 0.34,1.29 0.54,1.71 0.52,2.99 1.03,5.99 1.66,8.96 0.88,-0.21 2.81,0.17 2.60,-1.20 0.15,-3.12 0.36,-6.26 0.34,-9.39 0.42,-0.52 1.75,0.49 2.47,0.70 0.52,0.39 2.63,0.81 1.26,1.37 -1.06,1.05 -1.12,2.68 -1.41,4.07 -0.19,1.23 -0.31,2.47 -0.40,3.71 1.07,0.01 2.26,-0.08 3.19,0.53 0.39,0.82 1.30,1.83 0.75,2.75 -0.49,0.28 -1.43,1.65 -1.75,1.19 0.34,-1.35 -1.25,-1.56 -2.21,-1.47 -3.65,0.08 -7.20,1.11 -10.69,2.11 -0.99,0.29 -1.97,0.62 -2.96,0.94 -0.06,-0.18 -0.12,-0.37 -0.19,-0.56 z" />
+      <path id="path3340" fill="#20208C" d="m 41.90,29.77 c 0.20,-1.22 0.92,-2.25 1.32,-3.40 1.48,-2.93 2.02,-6.22 2.43,-9.45 0.06,-0.39 0.13,-0.79 -0.30,-0.99 -1.06,-0.90 -2.58,-0.58 -3.86,-0.66 -3.53,-0.06 -6.99,0.73 -10.44,1.34 -1.28,0.29 -2.59,0.52 -3.85,0.90 -0.48,-0.05 -1.84,0.92 -1.59,-0.02 0.06,-1.00 0.12,-2.01 0.25,-3.01 3.99,-1.17 8.08,-2.03 12.23,-2.45 3.61,-0.29 7.42,-0.35 10.81,1.12 1.19,0.51 2.21,1.39 2.92,2.48 -1.56,4.71 -4.13,9.16 -7.70,12.64 -0.73,0.66 -1.45,1.36 -2.25,1.94 -0.01,-0.14 0.02,-0.28 0.04,-0.42 z" />
       <use id="use3820" xlink:href="#ten-thousand"/>
     </g>
     <g id="five-character">
@@ -273,67 +263,67 @@
     </g>
     <!-- bamboo -->
     <g id="one-bamboo">
-      <use id="use4058" xlink:href="#green-bamboo" transform="translate(29 25) scale(1.18 1.15)"/>
+      <use id="use4058" xlink:href="#bamboo" stroke="#006C00" transform="translate(29 25) scale(1.18 1.15)"/>
     </g>
     <g id="two-bamboo">
-      <use id="use4062" xlink:href="#green-bamboo" transform="translate(30 9.5)"/>
-      <use id="use4064" xlink:href="#green-bamboo" transform="translate(30 44.5)"/>
+      <use id="use4062" xlink:href="#bamboo" stroke="#006C00" transform="translate(30 9.5)"/>
+      <use id="use4064" xlink:href="#bamboo" stroke="#006C00" transform="translate(30 44.5)"/>
     </g>
     <g id="three-bamboo">
-      <use id="use4070" xlink:href="#green-bamboo" transform="translate(18 44.5)"/>
-      <use id="use4074" xlink:href="#green-bamboo" transform="translate(30 9.5)"/>
-      <use id="use4078" xlink:href="#green-bamboo" transform="translate(41 44.5)"/>
+      <use id="use4070" xlink:href="#bamboo" stroke="#006C00" transform="translate(18 44.5)"/>
+      <use id="use4074" xlink:href="#bamboo" stroke="#006C00" transform="translate(30 9.5)"/>
+      <use id="use4078" xlink:href="#bamboo" stroke="#006C00" transform="translate(41 44.5)"/>
     </g>
     <g id="four-bamboo">
-      <use id="use4082" xlink:href="#green-bamboo" transform="translate(18 9.5)"/>
-      <use id="use4084" xlink:href="#green-bamboo" transform="translate(18 44.5)"/>
-      <use id="use4090" xlink:href="#green-bamboo" transform="translate(42 9.5)"/>
-      <use id="use4092" xlink:href="#green-bamboo" transform="translate(42 44.5)"/>
+      <use id="use4082" xlink:href="#bamboo" stroke="#006C00" transform="translate(18 9.5)"/>
+      <use id="use4084" xlink:href="#bamboo" stroke="#006C00" transform="translate(18 44.5)"/>
+      <use id="use4090" xlink:href="#bamboo" stroke="#006C00" transform="translate(42 9.5)"/>
+      <use id="use4092" xlink:href="#bamboo" stroke="#006C00" transform="translate(42 44.5)"/>
     </g>
     <g id="five-bamboo">
-      <use id="use4098" xlink:href="#green-bamboo" transform="translate(18 10.5) scale(.91 .925)"/>
-      <use id="use4100" xlink:href="#green-bamboo" transform="translate(18 45.5) scale(.91 .925)"/>
-      <use id="use4108" xlink:href="#red-bamboo" transform="translate(30.5 28) scale(.91 .925)"/>
-      <use id="use4110" xlink:href="#green-bamboo" transform="translate(43 10.5) scale(.91 .925)"/>
-      <use id="use4112" xlink:href="#green-bamboo" transform="translate(43 45.5) scale(.91 .925)"/>
+      <use id="use4098" xlink:href="#bamboo" stroke="#006C00" transform="translate(18 10.5) scale(.91 .925)"/>
+      <use id="use4100" xlink:href="#bamboo" stroke="#006C00" transform="translate(18 45.5) scale(.91 .925)"/>
+      <use id="use4108" xlink:href="#bamboo" stroke="#9C0000" transform="translate(30.5 28) scale(.91 .925)"/>
+      <use id="use4110" xlink:href="#bamboo" stroke="#006C00" transform="translate(43 10.5) scale(.91 .925)"/>
+      <use id="use4112" xlink:href="#bamboo" stroke="#006C00" transform="translate(43 45.5) scale(.91 .925)"/>
     </g>
     <g id="six-bamboo">
-      <use id="use4118" xlink:href="#green-bamboo" transform="translate(19 12.5) scale(.82 .85)"/>
-      <use id="use4120" xlink:href="#green-bamboo" transform="translate(19 45.5) scale(.82 .85)"/>
-      <use id="use4126" xlink:href="#green-bamboo" transform="translate(31 12.5) scale(.82 .85)"/>
-      <use id="use4128" xlink:href="#green-bamboo" transform="translate(31 45.5) scale(.82 .85)"/>
-      <use id="use4134" xlink:href="#green-bamboo" transform="translate(43 12.5) scale(.82 .85)"/>
-      <use id="use4136" xlink:href="#green-bamboo" transform="translate(43 45.5) scale(.82 .85)"/>
+      <use id="use4118" xlink:href="#bamboo" stroke="#006C00" transform="translate(19 12.5) scale(.82 .85)"/>
+      <use id="use4120" xlink:href="#bamboo" stroke="#006C00" transform="translate(19 45.5) scale(.82 .85)"/>
+      <use id="use4126" xlink:href="#bamboo" stroke="#006C00" transform="translate(31 12.5) scale(.82 .85)"/>
+      <use id="use4128" xlink:href="#bamboo" stroke="#006C00" transform="translate(31 45.5) scale(.82 .85)"/>
+      <use id="use4134" xlink:href="#bamboo" stroke="#006C00" transform="translate(43 12.5) scale(.82 .85)"/>
+      <use id="use4136" xlink:href="#bamboo" stroke="#006C00" transform="translate(43 45.5) scale(.82 .85)"/>
     </g>
     <g id="seven-bamboo">
-      <use id="use4142" xlink:href="#green-bamboo" transform="translate(19.5 31.5) scale(.73 .66)"/>
-      <use id="use4144" xlink:href="#green-bamboo" transform="translate(31.5 31.5) scale(.73 .66)"/>
-      <use id="use4146" xlink:href="#green-bamboo" transform="translate(43.5 31.5) scale(.73 .66)"/>
-      <use id="use4148" xlink:href="#green-bamboo" transform="translate(19.5 50.5) scale(.73 .66)"/>
-      <use id="use4150" xlink:href="#green-bamboo" transform="translate(31.5 50.5) scale(.73 .66)"/>
-      <use id="use4152" xlink:href="#green-bamboo" transform="translate(43.5 50.5) scale(.73 .66)"/>
-      <use id="use4166" xlink:href="#red-bamboo" transform="translate(31.5 12.5) scale(.73 .66)"/>
+      <use id="use4142" xlink:href="#bamboo" stroke="#006C00" transform="translate(19.5 31.5) scale(.73 .66)"/>
+      <use id="use4144" xlink:href="#bamboo" stroke="#006C00" transform="translate(31.5 31.5) scale(.73 .66)"/>
+      <use id="use4146" xlink:href="#bamboo" stroke="#006C00" transform="translate(43.5 31.5) scale(.73 .66)"/>
+      <use id="use4148" xlink:href="#bamboo" stroke="#006C00" transform="translate(19.5 50.5) scale(.73 .66)"/>
+      <use id="use4150" xlink:href="#bamboo" stroke="#006C00" transform="translate(31.5 50.5) scale(.73 .66)"/>
+      <use id="use4152" xlink:href="#bamboo" stroke="#006C00" transform="translate(43.5 50.5) scale(.73 .66)"/>
+      <use id="use4166" xlink:href="#bamboo" stroke="#9C0000" transform="translate(31.5 12.5) scale(.73 .66)"/>
     </g>
     <g id="eight-bamboo">
-      <use id="use4170" xlink:href="#green-bamboo" transform="translate(19.5 13.5) scale(.73 .77)"/>
-      <use id="use4172" xlink:href="#green-bamboo" transform="translate(19.5 46.5) scale(.73 .77)"/>
-      <use id="use4178" xlink:href="#green-bamboo" transform="translate(43.5 13.5) scale(.73 .77)"/>
-      <use id="use4180" xlink:href="#green-bamboo" transform="translate(43.5 46.5) scale(.73 .77)"/>
-      <path id="path4222" d="m47.8 29.81c-0.41-0.59-1.51-0.57-2.75-0.06l-3.11-4.44c0.9-1 1.3-2.02 0.89-2.61-0.41-0.58-1.51-0.57-2.75-0.06l-3.11-4.44c0.9-1 1.3-2.02 0.89-2.61-0.58-0.83-2.51-0.47-4.32 0.8s-2.81 2.96-2.23 3.79c0.41 0.59 1.51 0.57 2.75 0.06l3.11 4.44c-0.9 1-1.3 2.02-0.89 2.61s1.51 0.57 2.75 0.06l3.11 4.44c-0.9 1-1.3 2.02-0.89 2.61 0.58 0.83 2.51 0.47 4.32-0.8s2.8-2.96 2.3-3.79zm-10.6-7.33l-2.65-3.79c-0.67 0.38-1.29 0.49-1.47 0.22-0.22-0.31 0.26-1.02 1.06-1.58s1.63-0.77 1.85-0.46c0.18 0.26-0.13 0.8-0.71 1.3l2.65 3.79c0.21 0.3 0.21 0.65 0.01 0.79-0.3 0.15-0.6 0.02-0.8-0.27zm0.3 3.92c-0.22-0.31 0.5-1.19 1.61-1.96 1.11-0.78 2.18-1.15 2.4-0.84s-0.5 1.19-1.61 1.96c-1.1 0.77-2.2 1.15-2.4 0.84zm7.4 6.27c-0.8 0.56-1.63 0.77-1.85 0.46-0.18-0.26 0.13-0.8 0.71-1.3l-2.65-3.79c-0.21-0.29-0.21-0.65-0.01-0.79s0.53-0.02 0.74 0.28l2.65 3.79c0.67-0.38 1.29-0.49 1.47-0.22 0.3 0.29-0.2 1-1 1.57z" fill="#006C00"/>
-      <path id="path4224" d="m37.5 16.4c-1.81-1.27-3.75-1.62-4.32-0.8-0.41 0.58-0.02 1.61 0.89 2.61l-3.11 4.44c-1.25-0.51-2.35-0.53-2.75 0.06-0.41 0.59-0.02 1.61 0.89 2.61l-3.11 4.44c-1.25-0.51-2.34-0.53-2.75 0.06-0.58 0.83 0.42 2.52 2.23 3.79s3.75 1.63 4.32 0.8c0.41-0.59 0.02-1.61-0.89-2.61l3.11-4.44c1.25 0.51 2.34 0.53 2.75-0.06 0.41-0.58 0.02-1.61-0.89-2.61l3.11-4.44c1.25 0.51 2.34 0.53 2.75-0.06 0.7-0.83-0.3-2.52-2.1-3.79zm-7.6 11.63l-2.65 3.79c0.58 0.5 0.9 1.04 0.71 1.31-0.22 0.31-1.04 0.11-1.85-0.46s-1.28-1.27-1.06-1.58c0.18-0.26 0.8-0.15 1.47 0.22l2.65-3.79c0.21-0.3 0.54-0.42 0.74-0.28 0.4 0.14 0.4 0.5 0.2 0.79zm3.6-1.63c-0.22 0.31-1.29-0.07-2.4-0.84s-1.83-1.65-1.61-1.96 1.29 0.07 2.4 0.84c1.1 0.77 1.8 1.65 1.6 1.96zm4.4-7.49c-0.18 0.26-0.8 0.15-1.47-0.22l-2.65 3.79c-0.21 0.3-0.54 0.42-0.74 0.28s-0.2-0.49 0.01-0.79l2.65-3.79c-0.58-0.5-0.9-1.04-0.71-1.3 0.22-0.31 1.04-0.11 1.85 0.46s1.2 1.26 0.9 1.57z" fill="#006C00"/>
-      <path id="path4234" d="m39.8 60.81c-0.41-0.59-1.51-0.57-2.75-0.06l-3.11-4.44c0.9-1 1.3-2.02 0.89-2.61s-1.51-0.56-2.75-0.06l-3.11-4.44c0.9-1 1.3-2.02 0.89-2.61-0.58-0.83-2.51-0.47-4.32 0.8s-2.81 2.96-2.23 3.79c0.41 0.59 1.51 0.57 2.75 0.06l3.11 4.44c-0.9 1-1.3 2.02-0.89 2.61 0.41 0.58 1.51 0.56 2.75 0.06l3.11 4.44c-0.9 1-1.3 2.02-0.89 2.61 0.58 0.83 2.51 0.47 4.32-0.8 1.8-1.27 2.8-2.96 2.3-3.79zm-10.6-7.33l-2.65-3.79c-0.67 0.38-1.29 0.49-1.47 0.22-0.22-0.31 0.26-1.02 1.06-1.58s1.63-0.77 1.85-0.46c0.18 0.26-0.13 0.8-0.71 1.3l2.65 3.79c0.21 0.29 0.21 0.65 0.01 0.79-0.3 0.15-0.6 0.02-0.8-0.27zm0.3 3.92c-0.22-0.31 0.5-1.19 1.61-1.96 1.11-0.78 2.18-1.15 2.4-0.84s-0.5 1.19-1.61 1.96c-1.1 0.78-2.2 1.15-2.4 0.84zm7.4 6.27c-0.8 0.56-1.63 0.77-1.85 0.46-0.18-0.26 0.13-0.8 0.71-1.3l-2.65-3.79c-0.21-0.3-0.21-0.65-0.01-0.79s0.53-0.02 0.74 0.28l2.65 3.79c0.67-0.38 1.29-0.49 1.47-0.22 0.3 0.3-0.2 1-1 1.57z" fill="#006C00"/>
-      <path id="path4236" d="m45.5 47.4c-1.81-1.27-3.75-1.63-4.32-0.8-0.41 0.59-0.02 1.61 0.89 2.61l-3.11 4.44c-1.25-0.51-2.34-0.53-2.75 0.06s-0.02 1.61 0.89 2.61l-3.11 4.44c-1.25-0.51-2.34-0.53-2.75 0.06-0.58 0.83 0.42 2.52 2.23 3.79s3.75 1.62 4.32 0.8c0.41-0.58 0.02-1.61-0.89-2.61l3.11-4.44c1.25 0.51 2.35 0.53 2.75-0.06 0.41-0.59 0.02-1.61-0.89-2.61l3.11-4.44c1.25 0.51 2.34 0.53 2.75-0.06 0.7-0.83-0.3-2.52-2.1-3.79zm-7.6 11.63l-2.65 3.79c0.58 0.5 0.9 1.04 0.71 1.3-0.22 0.31-1.04 0.11-1.85-0.46-0.8-0.56-1.28-1.27-1.06-1.58 0.18-0.26 0.8-0.15 1.47 0.22l2.65-3.79c0.21-0.3 0.54-0.42 0.74-0.28 0.4 0.16 0.4 0.51 0.2 0.8zm3.6-1.63c-0.22 0.31-1.29-0.07-2.4-0.84s-1.83-1.65-1.61-1.96 1.29 0.07 2.4 0.84c1.1 0.77 1.8 1.65 1.6 1.96zm4.4-7.48c-0.18 0.26-0.8 0.15-1.47-0.22l-2.65 3.79c-0.21 0.29-0.54 0.42-0.74 0.28s-0.2-0.49 0.01-0.79l2.65-3.79c-0.58-0.5-0.9-1.04-0.71-1.3 0.22-0.31 1.04-0.11 1.85 0.46 0.7 0.55 1.2 1.26 0.9 1.57z" fill="#006C00"/>
+      <use id="use4170" xlink:href="#bamboo" stroke="#006C00" transform="translate(19.5 13.5) scale(.73 .77)"/>
+      <use id="use4172" xlink:href="#bamboo" stroke="#006C00" transform="translate(19.5 46.5) scale(.73 .77)"/>
+      <use id="use4178" xlink:href="#bamboo" stroke="#006C00" transform="translate(43.5 13.5) scale(.73 .77)"/>
+      <use id="use4180" xlink:href="#bamboo" stroke="#006C00" transform="translate(43.5 46.5) scale(.73 .77)"/>
+      <use id="use4182" xlink:href="#bamboo-rgt" stroke="#006C00" transform="translate(28.0 14.0) scale(.77 .77)"/>
+      <use id="use4184" xlink:href="#bamboo-lft" stroke="#006C00" transform="translate(35.0 14.0) scale(.77 .77)"/>
+      <use id="use4182" xlink:href="#bamboo-rgt" stroke="#006C00" transform="translate(35.0 47.0) scale(.77 .77)"/>
+      <use id="use4184" xlink:href="#bamboo-lft" stroke="#006C00" transform="translate(28.0 47.0) scale(.77 .77)"/>
     </g>
     <g id="nine-bamboo">
-      <use id="use4186" xlink:href="#green-bamboo" transform="translate(19.5 12.5) scale(.73 .66)"/>
-      <use id="use4188" xlink:href="#green-bamboo" transform="translate(19.5 31.5) scale(.73 .66)"/>
-      <use id="use4190" xlink:href="#green-bamboo" transform="translate(19.5 50.5) scale(.73 .66)"/>
-      <use id="use4198" xlink:href="#red-bamboo" transform="translate(31.5 12.5) scale(.73 .66)"/>
-      <use id="use4200" xlink:href="#red-bamboo" transform="translate(31.5 31.5) scale(.73 .66)"/>
-      <use id="use4202" xlink:href="#red-bamboo" transform="translate(31.5 50.5) scale(.73 .66)"/>
-      <use id="use4210" xlink:href="#green-bamboo" transform="translate(43.5 12.5) scale(.73 .66)"/>
-      <use id="use4212" xlink:href="#green-bamboo" transform="translate(43.5 31.5) scale(.73 .66)"/>
-      <use id="use4214" xlink:href="#green-bamboo" transform="translate(43.5 50.5) scale(.73 .66)"/>
+      <use id="use4186" xlink:href="#bamboo" stroke="#006C00" transform="translate(19.5 12.5) scale(.73 .66)"/>
+      <use id="use4188" xlink:href="#bamboo" stroke="#006C00" transform="translate(19.5 31.5) scale(.73 .66)"/>
+      <use id="use4190" xlink:href="#bamboo" stroke="#006C00" transform="translate(19.5 50.5) scale(.73 .66)"/>
+      <use id="use4198" xlink:href="#bamboo" stroke="#9C0000" transform="translate(31.5 12.5) scale(.73 .66)"/>
+      <use id="use4200" xlink:href="#bamboo" stroke="#9C0000" transform="translate(31.5 31.5) scale(.73 .66)"/>
+      <use id="use4202" xlink:href="#bamboo" stroke="#9C0000" transform="translate(31.5 50.5) scale(.73 .66)"/>
+      <use id="use4210" xlink:href="#bamboo" stroke="#006C00" transform="translate(43.5 12.5) scale(.73 .66)"/>
+      <use id="use4212" xlink:href="#bamboo" stroke="#006C00" transform="translate(43.5 31.5) scale(.73 .66)"/>
+      <use id="use4214" xlink:href="#bamboo" stroke="#006C00" transform="translate(43.5 50.5) scale(.73 .66)"/>
     </g>
     <!-- season tiles -->
     <g id="season-1"> <!-- 2112 -->

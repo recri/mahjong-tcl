@@ -42,12 +42,14 @@ Yet to do:
   part to the beginning of the next path.
 [x] the bams internal whites are not shown
 [x] redo the red dragon, it looks lumpy
-[ ] Get the adaptive framing and sizing to work correctly.
-[ ] Scale images for window size.
+[x] Fix the tilted bams, they are still solid
 [x] Make the svg tile set work without inkscape
-[ ] Switch back to using xml layout descriptor
 [x] Implement hints
 [x] Implement pause/continue
+[ ] Figure out why the seasons and flowers are blanks
+[ ] Get the adaptive framing and sizing to work correctly.
+[ ] Scale images for window size.
+[ ] Switch back to using xml layout descriptor
 [ ] Implement preferences
 [ ] Implement save/restore
 [ ] Implement scores
@@ -63,8 +65,7 @@ Yet to do:
 [ ] there is a white streak in the upper swash of the West character
   path4304, resisted attempts to fix it
 [ ] the coins fade at reduced scale, need width boosting
-[ ] Fix the tilted bams, they are still solid
 [ ] Canvas based imaging is too slow, need to cache the images
   as they become available.
-[ ] Rewrite wish for khronos graphics
 [ ] Popup a game over dialog when all plays have been made.
+[ ] Rewrite wish for khronos graphics

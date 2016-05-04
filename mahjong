@@ -73,6 +73,78 @@ if {$::usetkpath} {
     package require tkpath
 }
 
+snit::type mahjong::prefs {
+    option -file prefs.tcl
+    option -directory -default {} -readonly true
+    constructor {args} {
+	$self configure {*}$args
+    }
+    method resolve {file} {
+	if {[file isdir [file join ~ .config]]} {
+	    set options(-directory) [file join ~ .config mahjong]
+	} elseif {[file isdir [file join ~ Library Preferences]]} {
+	    set options(-directory) [file join ~ Library Preferences mahjong]
+	} elseif {[file isdir [file join ~ {Applications Data}]]} {
+	    set options(-directory) [file join ~ {Applications Data} mahjong]
+	} else {
+	    error "unable to find a preferences directory"
+	}
+	if { ! [file isdir $options(-directory)]} {
+	    file mkdir $options(-directory)
+	}
+	return [file join $options(-directory) $file]
+    }
+    method save-prefs {array} {
+	if {[catch {
+	    set fp [open [$self resolve prefs.tcl] w]
+	    puts $fp "array set prefs {"
+	    foreach {name value} $array {
+		puts $fp [list $name $value]
+	    }
+	    puts $fp "}"
+	    close $fp
+	} error]} {
+	}
+    }
+    method load-prefs {} {
+	if {[catch {
+	    set fp [open [$self resolve prefs.tcl] r]
+	    set prefs [read $fp]
+	    close $fp
+	    if {[string first {array set prefs} $prefs] == 0} {
+		eval $prefs
+		return [array get prefs]
+	    }
+	 } error]} {
+	     return {}
+	 }
+    }
+    method save-scores {dict} {
+	if {[catch {
+	    set fp [open [$self resolve scores.tcl] w] 
+	    dict for {name value} $dict {
+		puts $fp [list $key $value]
+	    }
+	    close $fp
+	} error]} {
+	}
+    }
+    method load-scores {} {
+	if {[catch {
+	    set dict [dict create]
+	    set fp [open [$self resolve scores.tcl] r] 
+	    while {[gets $fp line] >= 0} {
+		foreach {key value} $line break
+		dict set dict $key $value
+	    }
+	    close $fp
+	    return $dict
+	} error]} {
+	    return $dict
+	}
+    }
+}
+
 snit::type mahjong::layout {
     option -verbose -default 1
     option -map -default {} -configuremethod Configure
@@ -1394,6 +1466,7 @@ snit::type mahjong::tiles {
 snit::widgetadaptor mahjong::canvas {
     option -layout -readonly true
     option -tiles -readonly true
+    option -prefs -readonly true
     option -shuffled-tiles -readonly true
     option -shuffled-slots -readonly true
     option -offsets -default {0 0} -readonly true
@@ -1429,7 +1502,7 @@ snit::widgetadaptor mahjong::canvas {
     delegate option * to hull
     delegate method * to hull
     
-    variable data [dict create selected {}]
+    variable data [dict create selected {} paused false]
     
     constructor {args} {
 	if {$::usetkpath} {
@@ -2154,4 +2227,5 @@ set width 165
 pack [mahjong::canvas .c -background \#323657 \
 	  -layout [mahjong::layout ::layout -map $mymap] \
 	  -tiles [mahjong::tiles ::tiles -svg postmodern.svg -width $width] {*}$argv \
+	  -prefs [mahjong::prefs ::prefs] \
 	 ] -fill both -expand true
