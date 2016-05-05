@@ -104,20 +104,23 @@ snit::type mahjong::prefs {
 	    puts $fp "}"
 	    close $fp
 	} error]} {
+	    puts "save-prefs: $error\n$::errorInfo"
 	}
     }
     method load-prefs {} {
 	if {[catch {
 	    set fp [open [$self resolve prefs.tcl] r]
-	    set prefs [read $fp]
+	    set data [read $fp]
 	    close $fp
-	    if {[string first {array set prefs} $prefs] == 0} {
-		eval $prefs
-		return [array get prefs]
+	    if {[string first {array set prefs} $data] != 0} {
+		error "malformed prefs.tcl"
 	    }
-	 } error]} {
-	     return {}
-	 }
+	    eval $data
+	} error]} {
+	    # puts "error in load-prefs: $error\n$::errorInfo"
+	    return {}
+	}
+	return [array get prefs]
     }
     method save-scores {dict} {
 	if {[catch {
@@ -1427,8 +1430,8 @@ snit::type mahjong::svg {
 #
 snit::type mahjong::tiles {
     option -svg -readonly true
-    option -width -readonly true
-    option -height -readonly true
+    option -width -default 64 -configuremethod Configure
+    option -height -default 88 -configuremethod Configure
     option -tiles -readonly true -default {
 	one-coin two-coins three-coins four-coins five-coins six-coins seven-coins eight-coins nine-coins
 	north-wind west-wind south-wind east-wind red-dragon green-dragon
@@ -1487,6 +1490,31 @@ snit::type mahjong::tiles {
 	$svg draw $window plain-tile $x $y $s $s [list $tile plain]
 	$svg draw $window [dict get $map $tile name] $x $y $s $s [list $tile face]
     }
+    method Configure {opt val} {
+	switch -- $opt {
+	    -width { 
+		set options(-width) $val
+		set options(-height) [expr {11*$val/8}]
+	    }
+	    -height {
+		set options(-height) $val
+		set options(-width) [expr {8*$val/11}]
+	    }
+	}
+    }
+}
+
+proc report-option-classes {win {indent {}}} {
+    puts "$win [winfo class $win]"
+    foreach o [$win configure] {
+	if {[llength $o] < 5} continue
+	foreach {opt name class val val} $o break
+	puts "$win.$name $class"
+	if {$name eq {style}} { puts "$win.style == [$win cget -style]" }
+    }
+    foreach c [winfo children $win] {
+	report-option-classes $c
+    }
 }
 
 snit::widgetadaptor mahjong::canvas {
@@ -1496,14 +1524,16 @@ snit::widgetadaptor mahjong::canvas {
     option -shuffled-tiles -readonly true
     option -shuffled-slots -readonly true
     option -offsets -default {0 0} -readonly true
-    option -trace false
 
     option -title mahjong
     option -game -default 0
     option -start-timer 0
+    option -stop-timer 0
     option -remaining-moves 0
     option -remaining-tiles 0
     
+    option -trace false
+
     component layout
     component tiles
 
@@ -1536,25 +1566,14 @@ snit::widgetadaptor mahjong::canvas {
 	} else {
 	    installhull using ::canvas
 	}
-	bind $win <Configure> [mymethod adjust-window]
+	bind $win <Destroy> [list {*}[mymethod destroy-window] %W]
+	bind $win <Configure> [list {*}[mymethod adjust-window] %W]
 	bind $win <Button-3> [list {*}[mymethod menu-popup] %W %x %y]
 	$self configure {*}$args
-
-	$self menu-build
-	
 	set layout $options(-layout)
 	set tiles $options(-tiles)
-	
-	set twid [$self cget -width]
-	set thgt [$self cget -height]
-	
-	# foreach name [$self get-tiles] { }
-	
-	if {$options(-game) ne {0}} {
-	    $self new-game [scan-game $options(-game)]
-	} else {
-	    $self new-game [clock seconds]
-	}
+	$self menu-build
+	$self initialize-window
     }
     
     method set-name {name slot} { dict set data name-to-slot $name $slot }
@@ -1638,6 +1657,14 @@ snit::widgetadaptor mahjong::canvas {
     ##
     ## menu functions
     ##
+    method first-game {} {
+	if {$options(-game) ne {0}} {
+	    $self new-game [scan-game $options(-game)]
+	} else {
+	    $self new-game [clock seconds]
+	}
+    }
+    
     method new-game {{game {}}} {
 	$self setup $game
 	while {[catch {$self restart} error]} {
@@ -1656,13 +1683,16 @@ snit::widgetadaptor mahjong::canvas {
     method pause-game {} {
 	$self clear-selected
 	dict set data paused true
+	$self pause-timer
 	foreach tile [$self get-remaining-tiles] { $self show [$self get-name $tile] $tile blank }
 	$self menu-enable-disable {{Continue}} {{New Game} {Restart} {Pause} {Hint} {Undo} {Redo} {Scores} {Preferences} {Help}}
     }
     method continue-game {} {
 	$self menu-enable-disable {{New Game} {Restart} {Pause} {Hint} {Undo} {Redo} {Scores} {Preferences}} {{Continue}}
 	foreach tile [$self get-remaining-tiles] { $self show [$self get-name $tile] $tile plain }
+	$self continue-timer
 	dict set data paused false
+	
     }
     method hint {} {
 	set slots [concat {*}[$self find-moves]]
@@ -1681,19 +1711,23 @@ snit::widgetadaptor mahjong::canvas {
     method preferences {} {}
     method help {} { puts "help called" }
     method by-name {} {
-	toplevel .b
-	wm title .b {By Name}
-	grid [ttk::label .b.l -text {Choose game by name}] -row 1 -column 0 -columnspan 2 -sticky ew 
-	grid [ttk::entry .b.e] -row 2 -column 0 -columnspan 2 -sticky ew
-	.b.e insert end [format-game $options(-game)]
-	grid [ttk::button .b.okay -text Okay -command [list {*}[mymethod by-name-finish] okay]] -row 3 -column 0 -sticky ew
-	grid [ttk::button .b.cancel -text Cancel -command [list {*}[mymethod by-name-finish] cancel]] -row 3 -column 1 -sticky ew
-	
+	toplevel .byname
+	wm title .byname {By Name}
+	grid [ttk::label .byname.l -text {Choose game by name}] -row 1 -column 0 -columnspan 2 -sticky ew 
+	grid [ttk::entry .byname.e] -row 2 -column 0 -columnspan 2 -sticky ew
+	.byname.e insert end [format-game $options(-game)]
+	grid [ttk::button .byname.okay -text Okay -command [list {*}[mymethod by-name-finish] okay]] -row 3 -column 0 -sticky ew
+	grid [ttk::button .byname.cancel -text Cancel -command [list {*}[mymethod by-name-finish] cancel]] -row 3 -column 1 -sticky ew
+	#report-option-classes .byname
     }
     method by-name-finish {how} {
-	if {$how eq {okay}} { set options(-game) [scan-game [.b.e get]] }
-	destroy .b
-	$self new-game $options(-game)
+	if {$how eq {okay}} { 
+	    set options(-game) [scan-game [.byname.e get]]
+	    destroy .byname
+	    $self new-game $options(-game)
+	} else {
+	    destroy .byname
+	}
     }
 	
     method quit-game {} { destroy . }
@@ -1701,24 +1735,54 @@ snit::widgetadaptor mahjong::canvas {
     ##
     ## window display helpers
     ##
-    method inverted-offsets {} {
-	if {$options(-offsets) eq {}} { set options(-offsets) {0 0} }
-	return [lmap a $options(-offsets) {expr {-$a}}]
-    }
-    
+    method apply-offsets {offsets} { $win move all {*}$offsets }
+    method invert-offsets {offsets} { return [lmap a $offsets {expr {-$a}}] }
+    method rescale {s} { $win scale all 0 0 $s $s }
     # compute the xoff yoff that centers the current 
-    method adjust-window {} {
-	#$win move all {*}[$self inverted-offsets]
+    method adjust-window {window} {
+	if {$window ne $win} return
+	if {[set w [winfo width $win]] == 1} return
+	if {[set h [winfo height $win]] == 1} return
+	# undo current offsets
+	$self apply-offsets [$self invert-offsets $options(-offsets)]
+	$self rescale [expr {1.0/[$self cget -width]}]
+	set width [expr {int(64*min(($w/64.0)/11.0, ($h/88.0)/7.0))}]
+	$self configure -width $width
+	$win rescale $width
 	foreach {x1 y1 x2 y2} [$win bbox all] break
-	set w [winfo width $win]
-	set h [winfo height $win]
 	set xoff [expr {(($w-($x2-$x1))/2) - $x1}]
 	set yoff [expr {(($h-($y2-$y1))/2) - $y1}]
-	#$win move all $xoff $yoff
 	set options(-offsets) [list $xoff $yoff]
+	$self apply-offsets $options(-offsets)
     }
     
+    method destroy-window {window} {
+	if {$window ne $win} return
+	if {[catch {$self save-prefs} error]} { puts "save-prefs: $error\n$::errorInfo" }
+    }
     
+    method initialize-window {} {
+	if {[catch {$self load-prefs} error]} { puts "load-prefs: $error\n$::errorInfo" }
+    }
+
+    method save-prefs {} {
+	$options(-prefs) save-prefs [list \
+					 zoomed [wm attributes . -zoomed] \
+					 fullscreen [wm attributes . -fullscreen] \
+					 geometry [wm geometry .] \
+					]
+    }
+    method load-prefs {} {
+	array set prefs [$options(-prefs) load-prefs]
+	# puts "load-prefs prefs are {[array get prefs]}"
+	if {[info exists prefs(fullscreen)] && $prefs(fullscreen)} {
+	    wm attributes . -fullscreen 1
+	} elseif {[info exists prefs(zoomed)] && $prefs(zoomed)} {
+	    wm attributes . -zoomed 1
+	} elseif {[info exists prefs(geometry)]} {
+	    wm geometry . $prefs(geometry)
+	}
+    }
     ##
     ## game play helpers
     ##
@@ -1774,35 +1838,74 @@ snit::widgetadaptor mahjong::canvas {
     
     method update-status {} {
 	set gname [format-game $options(-game)]
-	if {$options(-start-timer) == 0} {
-	    set elapsed 0
-	} else {
-	    set elapsed [expr {[clock seconds] - $options(-start-timer)}]
-	}
+	set elapsed [$self elapsed-time]
 	set elapsed [format {%d:%02d} [expr {$elapsed/60}] [expr {$elapsed%60}]]
 	wm title . "$options(-title) - $gname - $elapsed - $options(-remaining-moves) moves, $options(-remaining-tiles) tiles"
 	dict set data status-started [after 100 [list {*}[mymethod update-status]]]
     }
     
+    method reset-timer {} {
+	set options(-start-timer) 0
+	set options(-stop-timer) 0
+    }
     method start-timer {} {
 	if {$options(-start-timer) == 0} { set options(-start-timer) [clock seconds] }
+    }
+    method stop-timer {} {
+	if {$options(-stop-timer) == 0} { set options(-stop-timer) [clock seconds] }
+    }
+    method pause-timer {} {
+	if {$options(-stop-timer) == 0} { set options(-stop-timer) [clock seconds] }
+    }
+    method continue-timer {} {
+	if {$options(-stop-timer) != 0} {
+	    set options(-start-timer) [expr {[clock seconds]-($options(-stop-timer)-$options(-start-timer))}]
+	    set options(-stop-timer) 0
+	}
+    }
+    method elapsed-time {} {
+	if {$options(-start-timer) == 0} {
+	    return 0
+	} elseif {$options(-stop-timer) != 0} {
+	    return [expr {$options(-stop-timer) - $options(-start-timer)}]
+	} else {
+	    return [expr {[clock seconds] - $options(-start-timer)}]
+	}
     }
     
     method update-score {} {
 	set options(-remaining-moves) [$self count-moves]
 	if {$options(-remaining-moves) == 0} {
-	    set title {There are no more moves.}
-	    set text [string cat {Each puzzle has at least one solution.} \
-			  { You can undo your moves and try and find the solution,}\
-			  { restart this game, start a new one, or give up.}]
-	    set bitmap {}
-	    set idefault 0
-	    switch [tk_dialog .gameover $title $text $bitmap $idefault Undo Restart {New game} {Quit}] {
-		0 { $self undo }
-		1 { $self restart-game }
-		2 { $self new-game }
-		3 { $self quit-game }
-		-1 { $self undo }
+	    $self stop-timer
+	    if {$options(-remaining-tiles) > 0} {
+		# game lost
+		set title {There are no more moves.}
+		set text [string cat {Each puzzle has at least one solution.} \
+			      { You can undo your moves and try and find the solution,}\
+			      { restart this game, start a new one, or give up.}]
+		set bitmap {}
+		set idefault 0
+		switch [tk_dialog .gameover $title $text $bitmap $idefault Undo Restart {New game} {Quit}] {
+		    1 { $self restart-game }
+		    2 { $self new-game }
+		    3 { $self quit-game }
+		    default { 
+			$self continue-timer
+			$self undo 
+		    }
+		}
+	    } else {
+		# game won
+		set title {You won.}
+		set text {Congratulations, you have solved the puzzle.}
+		set bitmap {}
+		set idefault 0
+		switch [tk_dialog .gameover $title $text $bitmap $idefault {New game} Restart {Quit}] {
+		    0 { $self new-game }
+		    1 { $self restart-game }
+		    2 { $self quit-game }
+		    -1 { $self new-game }
+		}
 	    }
 	}
     }
@@ -1933,7 +2036,7 @@ snit::widgetadaptor mahjong::canvas {
     ##
     method restart {} {
 	# reset timer
-	set options(-start-timer) 0
+	$self reset-timer
 	# clear selection
 	$self clear-selected
 	# reset slot to name map
@@ -1962,6 +2065,9 @@ snit::widgetadaptor mahjong::canvas {
 	    # put the first tile in its slot
 	    $self tile-place $slot1 $name1
 	    lappend moves $name1 $slot1
+
+	    update idletasks
+
 	    # take next open slot in slot list
 	    # but avoid slots that block $slot1
 	    set slot2 [$self find-can-unplay $slots $slot1]
@@ -1973,6 +2079,8 @@ snit::widgetadaptor mahjong::canvas {
 	    
 	    # make backwards history
 	    lappend moves $name2 $slot2
+	    
+	    update idletasks
 	    
 	    # test for forward playability
 	    if { ! [$self can-play $slot1]} {
@@ -1997,7 +2105,7 @@ snit::widgetadaptor mahjong::canvas {
 	$self raise-in-render-order
 	
 	# adjust window
-	$self adjust-window
+	$self adjust-window $win
 	
 	# compute
 	set options(-remaining-tiles) [llength [$self get-remaining-tiles]]
@@ -2061,8 +2169,8 @@ snit::widgetadaptor mahjong::canvas {
 	set fwid [expr {$twid-$xstep}];	# tile face width
 	set fhgt [expr {$thgt-$ystep}];	# tile face height
 	foreach {x y z} $slot break;	# slot
-	set x [expr {(3.5+$x)*$fwid + $z*$xstep}]
-	set y [expr {(0.5+$y)*$fhgt - $z*$ystep}]
+	set x [expr {$x*$fwid + $z*$xstep}]
+	set y [expr {$y*$fhgt - $z*$ystep}]
 	if {[$win find withtag $name] eq {}} {
 	    $tiles draw $win $name 0 0 1
 	    set scale [expr {$twid/64.0}]
@@ -2079,6 +2187,7 @@ snit::widgetadaptor mahjong::canvas {
 	}
 	dict set data coords $name [list $x $y]
     }
+
     method show {slot name tag} {
 	foreach id [$win find withtag $name] {
 	    set tags [$win itemcget $id -tags]
@@ -2266,10 +2375,59 @@ set mymap {
 # the tile images for the game
 # this is a tile width that works at 2560x1700 
 
-set width 165
+# set width 171
+
+# this by itself should trigger
+# a reselection of fonts at 4x the default size
+# but all it does is change the sizes of windows
+tk scaling 5.33
+
+# some say that tk scaling should be set from the
+# result of expr {double([winfo screenwidth .])/([winfo screenmmwidth .]/25.40)}
+# however this reports 96 dpi on my pixel, but it also claims I have a 26.6 inch 
+# wide screen with 2560 pixels, but the screen is roughly a foot wide.
+
+#this doesn't change anything that I can see
+#font create Font -family Helvetica -size 14
+#option add *.font Font widgetDefault
+
+if {1} {
+
+    # these on the other hand trigger some
+    # larger fonts in Menus and Buttons on some 
+    # tk_dialogs
+    #
+    set fonts(Helvetica-14) {Menu Label Dialog Message Button Menubutton Checkbutton Radiobutton TLabel TButton Dialog.msg}
+    set fonts(Courier-14) {Entry Text TEntry}
+    set fonts(styled) TButton
+
+    foreach font {Helvetica-14 Courier-14} {
+	foreach {fname fsize} [split $font -] break
+	foreach class $fonts($font) {
+	    # create a named font named $class
+	    font create $class -family $fname -size $fsize
+	    # make it the default font of $class widgets
+	    option add *$class.font $class startupFile
+	    # if the widget font is styled
+	    if {$class in $fonts(styled)} {
+		# make $class the default fonta in the style
+		ttk::style config $class -font $class
+	    }
+	}
+    }
+    unset fonts font class fname fsize
+    # these are the options the tk_dialog pulls its widget width
+    # and message font out of
+    # option add *Dialog.msg.wrapLength 3i widgetDefault
+    # option add *Dialog.msg.font TkCaptionFont widgetDefault
+
+}
+#  -width $width
+
 pack [mahjong::canvas .c -background \#323657 \
 	  -layout [mahjong::layout ::layout -map $mymap] \
-	  -tiles [mahjong::tiles ::tiles -svg postmodern.svg -width $width] {*}$argv \
+	  -tiles [mahjong::tiles ::tiles -svg postmodern.svg] \
 	  -prefs [mahjong::prefs ::prefs] \
+	  {*}$argv \
 	 ] -fill both -expand true
-
+.c first-game {*}$argv
