@@ -49,8 +49,15 @@ Yet to do:
 [x] Figure out why the seasons and flowers are blanks
 [x] Popup a game over dialog when all plays have been made.
 [x] Implement preferences
-[ ] Get the adaptive framing and sizing to work correctly.
-[ ] Scale images for window size.
+[x] Get the adaptive framing and sizing to work correctly.
+[x] Scale images for window size.
+[x] Canvas based imaging is too slow, need to cache the images
+  as they become available, or maybe I redraw and erase them too often?
+[x] Increase the default font size for menus, dialogs, entries, etc.
+  Changed several things and some fonts changed size while others didn't
+[x] Stop clock during pause and end-of-game dialog
+[x] tk scaling can be set from [winfo screenwidth] etc.
+[x] there is a toplevel ubuntu display scaling that gets passed on where?
 [ ] Switch back to using xml layout descriptor
 [ ] Implement save/restore
 [ ] Implement scores
@@ -66,14 +73,7 @@ Yet to do:
 [ ] there is a white streak in the upper swash of the West character
   path4304, resisted attempts to fix it
 [ ] the coins fade at reduced scale, need width boosting
-[ ] Canvas based imaging is too slow, need to cache the images
-  as they become available, or maybe I redraw and erase them too often?
-[ ] Increase the default font size for menus, dialogs, entries, etc.
-  Changed several things and some fonts changed size while others didn't
-[ ] Stop clock during pause and end-of-game dialog
 [ ] End of game dialog when winning should enter the scores window
-[ ] tk scaling can be set from [winfo screenwidth] etc.
-[ ] there is a toplevel ubuntu display scaling that gets passed on where?
 [ ] redo into game over doesn't get the same reaction as manually selecting
   the same result
 [ ] Rewrite wish for khronos graphics
