@@ -58,6 +58,7 @@ Yet to do:
 [x] Stop clock during pause and end-of-game dialog
 [x] tk scaling can be set from [winfo screenwidth] etc.
 [x] there is a toplevel ubuntu display scaling that gets passed on where?
+[x] adjust the stagger in the 3d stacking    
 [ ] Switch back to using xml layout descriptor
 [ ] Implement save/restore
 [ ] Implement scores
@@ -76,4 +77,20 @@ Yet to do:
 [ ] End of game dialog when winning should enter the scores window
 [ ] redo into game over doesn't get the same reaction as manually selecting
   the same result
+[ ] altering window size while drawing tiles results in misplaced tiles
 [ ] Rewrite wish for khronos graphics
+[x] Interesting, the last three layers are a 3-2-1 pyramid which cannot be
+completed if they are the only tiles left, you can play 4 but you'll deadlock
+on the last two, you need two additional open slots somewhere else to complete
+the layout and you need to keep those two additional open slots for the last
+two plays. Each level has a certain number of last plays, tiles that can be
+played after everything else is done:  2 on 0, 12 on 1, 4 on 2, 2 on 3, 
+0 on 4 and 5, and 1 on six.  They are the uncovered endcaps.
+[x] Attempting various ways to avoid deadlock
+[x] avoid deadlock by sorting naked-endcaps to end of shuffled slots
+[x] avoid deadlock by preferring non-naked endcaps for unplay
+[x] Fix the error in the covers-empty-in-x test for can-unplay
+[x] Fix almost all deadlocks by single undo of previous play, sometimes
+repeated for a second or third deadlock.
+[ ] Implement -trace option to enable data output.
+[ ] Implement -watch preference to watch the deal get built

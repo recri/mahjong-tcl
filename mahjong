@@ -197,7 +197,9 @@ snit::type mahjong::layout {
     method exists-slot {slot} { return [$self exists $slot slot] }
     method set-empty {slot} { $self set-slot $slot {} }
     method is-empty {slot} { return [expr {[$self get-slot $slot] eq {}}] }
+    method is-filled {slot} { return [expr {[$self get-slot $slot] ne {}}]}
     method is-endcap {xyz} { return [$self get $xyz endcap] }
+    method is-naked-endcap {xyz} { return [$self get $xyz naked-endcap] }
 
     proc slot-x {slot} { return [lindex $slot 0] }
     proc slot-y {slot} { return [lindex $slot 1] }
@@ -284,7 +286,16 @@ snit::type mahjong::layout {
 	set xyz [list $x $y $z]
 	# initialize slot
 	$self set-slot $xyz {}
-	foreach {tag val} {x-adjacent {} x-closure {} left-adjacent {} right-adjacent {} z-shadow {} endcap 0} {
+	foreach {tag val} {
+	    x-adjacent {}
+	    x-closure {}
+	    left-adjacent {}
+	    right-adjacent {}
+	    z-shadow {}
+	    endcap 0
+	    naked-endcap 0
+	    triple-point 0
+	} {
 	    $self set $xyz $tag $val
 	}
 	lappend options(-slots) $xyz
@@ -311,7 +322,56 @@ snit::type mahjong::layout {
 	if {[llength [$self left-adjacent $xyz]] == 0 || 
 	    [llength [$self right-adjacent $xyz]] == 0} {
 	    $self set $xyz endcap 1
+	    if { ! [$self is-covered-in-z $xyz]} {
+		$self set $xyz naked-endcap 1
+	    }
 	}
+	if {[llength [$self left-adjacent $xyz]] == 2} {
+	    # make an llr triple point
+	    set llr [list {*}[$self left-adjacent $xyz] $xyz]
+	    foreach slot $llr t {l1 l2 r} {
+		$self set $xyz triple-point 1
+		$self set $xyz triple-point-llr [list $t {*}$llr]
+	    }
+	}
+	if {[llength [$self right-adjacent $xyz]] == 2} {
+	    # make an lrr triple point
+	    set lrr [list $xyz {*}[$self right-adjacent $xyz]]
+	    foreach slot $lrr t {l r1 r2} {
+		$self set $xyz triple-point 1
+		$self set $xyz triple-point-lrr [list $t {*}$lrr]
+	    }
+	}
+    }
+    method is-triple-point {xyz} { return [$self get $xyz triple-point] }
+    method triple-point-eval {xyz} {
+	if {[$self exists $xyz triple-point-llr]} {
+	    foreach {t l1 l2 r} [$self get $xyz triple-point-llr] break
+	    set cl1 [$self all-empty [$self left-closure $l1]]
+	    set cl2 [$self all-empty [$self left-closure $l2]]
+	    set cr [$self all-empty [$self right-closure $r]]
+	    if {$cr} {
+		if {$cl1 && [$self is-filled $l2]} {
+		    return [expr {$t in {l1 r}}]
+		} elseif {[$self is-filled $l1] && $cl2} {
+		    return [expr {$t in {l2 r}}]
+		}
+	    }
+	}
+	if {[$self exists $xyz triple-point-lrr]} {
+	    foreach {t l r1 r2} [$self get $xyz triple-point-lrr] break
+	    set cl [$self all-empty [$self left-closure $l]]
+	    set cr1 [$self all-empty [$self right-closure $r1]]
+	    set cr2 [$self all-empty [$self right-closure $r2]]
+	    if {$cl} {
+		if {$cr1 && [$self is-filled $r2]} {
+		    return [expr {$t in {l r1}}]
+		} elseif {[$self is-filled $r1] && $cr2} {
+		    return [expr {$t in {l r2}}]
+		}
+	    }
+	}
+	return 0
     }
     # find the z-shadow cast by this tile on the next layer
     method compute-z-shadow {xyz} {
@@ -374,6 +434,8 @@ snit::type mahjong::layout {
 	    lappend rowclosure {*}$closure
 	}
 	$self set $xyz row-closure [lsort -real -index 0 [lsort -real -index 1 $rowclosure]]
+	$self set $xyz left-closure [lmap s [$self row-closure $xyz] {expr {[lindex $s 0] <= [lindex $xyz 0] ? $s : [continue]}}]
+	$self set $xyz right-closure [lmap s [$self row-closure $xyz] {expr {[lindex $s 0] >= [lindex $xyz 0] ? $s : [continue]}}]
     }
 
     # return the z-shadow of a slot
@@ -392,7 +454,8 @@ snit::type mahjong::layout {
     method row {xyz} { return [$self get $xyz row] }
     # return the row closure of a slot
     method row-closure {xyz} { return [$self get $xyz row-closure] }
-
+    method left-closure {xyz} { return [$self get $xyz left-closure] }
+    method right-closure {xyz} { return [$self get $xyz right-closure] }
     # number of empty slots, all filled, or all empty
     method number-empty {slots} { return [tcl::mathop::+ {*}[lmap s $slots {$self is-empty $s}]] }
     method all-filled {slots} {	return [expr {[$self number-empty $slots] == 0}] }
@@ -416,7 +479,7 @@ snit::type mahjong::layout {
     }
     method is-covered-in-z {slot} {
 	foreach s [$self layer-slots [expr {[slot-z $slot]+1}]] {
-	    if { ! [$self is-empty $s] && $slot in [$self z-shadow $s]} {
+	    if {[$self is-filled $s] && $slot in [$self z-shadow $s]} {
 		return 1
 	    }
 	}
@@ -497,10 +560,15 @@ snit::type mahjong::layout {
 	    } elseif {[$self all-filled-right-adjacent $slot]} {
 		return 0
 	    } 
-	    # elseif {[$self any-filled-x-adjacent $slot]} { 
-		# okay, maybe if we're partially filled
-	        # return 0
-	    # }
+	    # if there is a junction where two slots are x-adjacent to one slot,
+	    # and one of the two slots filled,
+	    # and the outward row closure empty for the other two slots
+	    # then the other two slots may be unplayed onto
+	    if {[$self is-triple-point $slot] &&
+		[$self triple-point-eval $slot]
+	    } {
+		return 0
+	    }
 	    return 1
 	}
 	error "failed to classify case"
@@ -1533,6 +1601,7 @@ snit::widgetadaptor mahjong::canvas {
     option -remaining-tiles 0
     
     option -trace false
+    option -infinite false
 
     component layout
     component tiles
@@ -1545,13 +1614,11 @@ snit::widgetadaptor mahjong::canvas {
 
     delegate method set-slot to layout
     delegate method set-empty to layout
-    #delegate method get-slot to layout
-    #delegate method get-slots to layout
-    #delegate method is-empty to layout
+    delegate method layer-slots to layout
     delegate method is-endcap to layout
+    delegate method is-naked-endcap to layout
     delegate method z-shadow to layout
     delegate method x-adjacent to layout
-    # delegate method x-closure to layout
     delegate method can-unplay to layout
     delegate method can-play to layout
     
@@ -1587,6 +1654,40 @@ snit::widgetadaptor mahjong::canvas {
 	return [lmap name [$self get-tiles] {expr {[$self get-name-slot $name] ne {}?$name:[continue]}}]
     }
 
+    method tile-sizes {} {
+	set twid [$self cget -width];   # tile width
+	set thgt [$self cget -height];  # tile height
+	set xstep [expr {$twid/10.0}];  # offset for 3d border
+	set ystep [expr {$thgt/9.0}];  # offset for 3d border
+	set fwid [expr {$twid-$xstep}];	# tile face width
+	set fhgt [expr {$thgt-$ystep}];	# tile face height
+	return [list $twid $thgt $xstep $ystep $fwid $fhgt]
+    }
+    method xy-for-slot {slot} {
+	foreach {twid thgt xstep ystep fwid fhgt} [$self tile-sizes] break
+	foreach {x y z} $slot break;	# slot
+	set x [expr {$x*$fwid + $z*$xstep}]
+	set y [expr {$y*$fhgt - $z*$ystep}]
+	return [list $x $y]
+    }
+    #	if {[$win find withtag $name] eq {}} {
+    #	    set scale [expr {$twid/64.0}]
+    #	    $tiles draw $win $name 0 0 1
+    #	    $win scale $name 0 0 $scale $scale
+    #	    foreach id [$win find withtag $name] {
+    #		if {[lsearch [$win itemcget $id -tags] scale-width] >= 0} {
+    #		    $win itemconfigure $id -width [expr {$scale*[$win itemcget $id -width]}]
+    #		}
+    #	    }
+    #	    $win move $name $x $y
+    #	    $win move $name {*}$options(-offsets)
+    #	} else {
+    #	    foreach {ox oy} [dict get $data coords $name] break
+    #	    $win move $name [expr {$x-$ox}] [expr {$y-$oy}]
+    #	}
+    #	dict set data coords $name [list $x $y]
+    #	$self check-tile-coords $slot $name
+
     # context menu, button 3 or 2 on the background
     # with single character accelerators on the root window
     method menu-build {} {
@@ -1610,6 +1711,7 @@ snit::widgetadaptor mahjong::canvas {
 	    {command ? {Help} help}
 	    {separator}
 	    {command b {By Name} by-name}
+	    {menu {} {Draw Frame} draw-frame {0 1 2 3 4 5 6}}
 	    {separator}
 	    {command q {Quit} quit-game}
 	} {
@@ -1634,6 +1736,13 @@ snit::widgetadaptor mahjong::canvas {
 		hint {
 		    .m add command -accelerator $accelerator -label $label
 		    bind . <KeyPress-$accelerator> [mymethod $meth]
+		}
+		menu {
+		    menu .m.$meth -tearoff no
+		    .m add cascade -label $label -menu .m.$meth
+		    foreach i $var {
+			.m.$meth add radiobutton -label "Level $i" -value $i -command [list {*}[mymethod $meth] $i]
+		    }
 		}
 		default {
 		    error "unexpected menu entry command $entry"
@@ -1666,6 +1775,12 @@ snit::widgetadaptor mahjong::canvas {
 	    $self new-game [scan-game $options(-game)]
 	} else {
 	    $self new-game [clock seconds]
+	}
+	if {$options(-infinite)} {
+	    while {1} {
+		puts "new-game succeeded"
+		$self new-game
+	    }
 	}
     }
     
@@ -1733,6 +1848,18 @@ snit::widgetadaptor mahjong::canvas {
 	    destroy .byname
 	}
     }
+    method draw-frame {level} {
+	$win delete frame
+	foreach {twid thgt xstep ystep fwid fhgt} [$self tile-sizes] break
+	foreach slot [$self layer-slots $level] {
+	    foreach {x y} [$self xy-for-slot $slot] break
+	    set x [expr {$x+$xstep}]
+	    $win create rectangle $x $y [expr {$x+$fwid}] [expr {$y+$fhgt}] -fill {} -outline white -tags frame
+	    $win create text [expr {$x+10}] [expr {$y+$ystep+10}] -anchor nw -text $slot -fill white -tags frame
+	}
+	$win lower frame
+	$win move frame {*}$options(-offsets)
+    }
 	
     method quit-game {} { destroy . }
     
@@ -1752,52 +1879,32 @@ snit::widgetadaptor mahjong::canvas {
 	if {$window ne $win} return
 	if {[set w [winfo width $win]] == 1} return
 	if {[set h [winfo height $win]] == 1} return
-	# undo current offsets
+	# undo current offsets and scale
 	$self apply-offsets [$self invert-offsets $options(-offsets)]
 	$self rescale [expr {1.0/[$self cget -width]}]
+	# compute and apply new scale
 	set width [expr {int(64*min(($w/64.0)/11.0, ($h/88.0)/7.0))}]
 	$self configure -width $width
 	$win rescale $width
-	set bbox [$win bbox all]
-	if {[llength $bbox] == 4} {
-	    foreach {x1 y1 x2 y2} $bbox break
-	    set xoff [expr {(($w-($x2-$x1))/2) - $x1}]
-	    set yoff [expr {(($h-($y2-$y1))/2) - $y1}]
-	    set options(-offsets) [list $xoff $yoff]
-	}
+	# compute and apply new offsets
+	# these should be face height and width plus one 3d border
+	foreach {twid thgt xstep ystep fwid fhgt} [$self tile-sizes] break
+	set lwidth [expr {11*$fwid+$xstep}]
+	set lheight [expr {7*$fhgt+$ystep}]
+	set xoff [expr {($w-($lwidth))/2}]
+	set yoff [expr {($h-($lheight))/2}]
+	set options(-offsets) [list $xoff $yoff]
+	#set bbox [$win bbox all]
+	#if {[llength $bbox] == 4} {
+	 #   foreach {x1 y1 x2 y2} $bbox break
+	  #  set xoff [expr {(($w-($x2-$x1))/2) - $x1}]
+	   # set yoff [expr {(($h-($y2-$y1))/2) - $y1}]
+	    #set options(-offsets) [list $xoff $yoff]
+	#}
 	$self apply-offsets $options(-offsets)
 	$self check-all-tile-coords
     }
     
-    method xy-for-slot {slot} {
-	set twid [$self cget -width];   # tile width
-	set thgt [$self cget -height];  # tile height
-	set xstep [expr {$twid/10.0}];  # offset for 3d border
-	set ystep [expr {$thgt/9.0}];  # offset for 3d border
-	set fwid [expr {$twid-$xstep}];	# tile face width
-	set fhgt [expr {$thgt-$ystep}];	# tile face height
-	foreach {x y z} $slot break;	# slot
-	set x [expr {$x*$fwid + $z*$xstep}]
-	set y [expr {$y*$fhgt - $z*$ystep}]
-	return [list $x $y]
-    }
-    #	if {[$win find withtag $name] eq {}} {
-    #	    set scale [expr {$twid/64.0}]
-    #	    $tiles draw $win $name 0 0 1
-    #	    $win scale $name 0 0 $scale $scale
-    #	    foreach id [$win find withtag $name] {
-    #		if {[lsearch [$win itemcget $id -tags] scale-width] >= 0} {
-    #		    $win itemconfigure $id -width [expr {$scale*[$win itemcget $id -width]}]
-    #		}
-    #	    }
-    #	    $win move $name $x $y
-    #	    $win move $name {*}$options(-offsets)
-    #	} else {
-    #	    foreach {ox oy} [dict get $data coords $name] break
-    #	    $win move $name [expr {$x-$ox}] [expr {$y-$oy}]
-    #	}
-    #	dict set data coords $name [list $x $y]
-    #	$self check-tile-coords $slot $name
 
     method check-tile-coords {slot name} {
 	set bbox [$win bbox $name]
@@ -1894,6 +2001,19 @@ snit::widgetadaptor mahjong::canvas {
  	return $sort
     }
     
+    method sort-fertility {slots} {
+	set plain {}
+	set endcaps {}
+	foreach slot $slots {
+	    if {[$self is-naked-endcap $slot]} {
+		lappend endcaps $slot
+	    } else {
+		lappend plain $slot
+	    }
+	}
+	return [concat $plain $endcaps]
+    }
+
     method raise-in-render-order {} {
 	foreach slot [$self get-all-slots] {
 	    $win raise [$self get-slot-name $slot]
@@ -2113,7 +2233,14 @@ snit::widgetadaptor mahjong::canvas {
 	# clear selection
 	$self clear-selected
 	# reset slot to name map
-	foreach slot [$self get-all-slots] { $self set-slot-name $slot {} }
+	foreach slot [$self get-all-slots] { 
+	    set name [$self get-slot-name $slot]
+	    if {[$self tile-is-placed $slot $name]} {
+		$self tile-unplace $slot $name
+		update
+	    }
+	    $self set-slot-name $slot {}
+	}
 	# reset name to slot map
 	foreach name [$self get-tiles] { $self set-name-slot $name {} }
 	
@@ -2135,6 +2262,10 @@ snit::widgetadaptor mahjong::canvas {
 	    
 	    # take first open slot in slot list
 	    set slot1 [$self find-can-unplay $slots]
+	    if {$slot1 eq {}} {
+		puts "slot1 eq {}"
+		break
+	    }
 	    set s1 [lsearch $slots $slot1]
 	    set slots [lreplace $slots $s1 $s1]
 
@@ -2147,6 +2278,61 @@ snit::widgetadaptor mahjong::canvas {
 	    # take next open slot in slot list
 	    # but avoid slots that block $slot1
 	    set slot2 [$self find-can-unplay $slots $slot1]
+
+	    while {$slot2 eq {}} {
+		# there is no unplayable slot2 that doesn't block slot1
+		# undo the unplay farthest from slot1, return the unplayed
+		# slots and names to the todo lists, and retry slot2 search
+		set bestm {}
+		set bestd -1
+		foreach m [$self find-moves] {
+		    # okay, so the pairs of matching tiles found by search
+		    # may not have been unplayed as a pair, which will
+		    # make it hard to remove them from the $moves list
+		    # so reject pairs that aren't moves in $moves
+		    if { ! [$self is-an-unplayed-move {*}$m $moves]} {
+			continue
+		    }
+		    if {[set d [move-distance $slot1 {*}$m]] > $bestd} {
+			set bestm $m
+			set bestd $d
+		    }
+		}
+		# puts "bestm is $bestm at distance $bestd"
+		# since we are only attempting to undo previously completed moves
+		# we won't try to undo slot1 because it's only half a move
+		# but we might still be digging a hole and filling it back in
+		# if we are too close
+		if {$bestm ne {}} {
+		    # undo $bestm
+		    puts "undoing {$bestm} at $bestd"
+		    foreach {moves slots names} [$self undo-unplayed-move {*}$bestm $moves $slots $names] break
+		    # redo the search for slot2
+		    set slot2 [$self find-can-unplay $slots $slot1]
+		    continue
+		}
+		puts "slot2 eq {} backing out $slot1"
+		# undo move
+		# puts "undo move"
+		set moves [lrange $moves 0 end-2]
+		# puts "tile-unplace $slot1 $name1"
+		$self tile-unplace $slot1 $name1
+		# undo damage
+		if {$s1 < [llength $slots]} {
+		    set slots [lreplace $slots $s1 $s1 $slot1]
+		} else {
+		    lappend slots $slot1
+		}
+		set names [list $name1 $name2 {*}$names] 
+		# puts "breaking loop"
+		# this used to break out of the search loop
+		# now it only breaks the slot2 re-search loop
+		break
+	    }
+
+	    # break the search loop if slot2 failed
+	    if {$slot2 eq {}} break
+	    
 	    set s2 [lsearch $slots $slot2]
 	    set slots [lreplace $slots $s2 $s2]
 	    
@@ -2160,11 +2346,14 @@ snit::widgetadaptor mahjong::canvas {
 	    
 	    # test for forward playability
 	    if { ! [$self can-play $slot1]} {
-		error "proposed move slot1 $slot1 cannot play"
+		puts "proposed move slot1 $slot1 cannot play"
+		break
 	    } elseif { ! [$self can-play $slot2]} {
-		error "proposed move slot2 $slot2 cannot play"
+		puts "proposed move slot2 $slot2 cannot play"
+		break
 	    } elseif { ! [$self match $name1 $name2]} {
-		error "proposed move mismatches $nm1 and $nm2"
+		puts "proposed move mismatches $nm1 and $nm2"
+		break
 	    }
 	}
 
@@ -2189,6 +2378,58 @@ snit::widgetadaptor mahjong::canvas {
     }
     
     ##
+    ## unplay to avoid deadlock
+    ##
+    method is-an-unplayed-move {slot1 slot2 moves} {
+	set i1 [lsearch $moves $slot1]
+	set i2 [lsearch $moves $slot2]
+	if {$i1 < 0 || $i2 < 0} { error "what?" }
+	if {abs($i1-$i2) == 2} {
+	    if {$i1 < $i2 && ($i1%4) == 1} { return 1 }
+	    if {$i2 < $i1 && ($i2%4) == 1} { return 1 }
+	}
+	return 0
+    }
+    proc slot-distance {slot1 slot2} {
+	return [tcl::mathop::+ {*}[lmap a $slot1 b $slot2 {expr {pow($a-$b,2)}}]]
+    }
+    proc move-distance {slot1 slot2 slot3} {
+	return [expr {[slot-distance $slot1 $slot2]+[slot-distance $slot1 $slot3]}]
+    }
+    method undo-unplayed-move {slot1 slot2 moves slots names} {
+	# get the slot indexes
+	set i1 [lsearch $moves $slot1]
+	set i2 [lsearch $moves $slot2]
+	# swap the slots so $i1 < $i2
+	if {$i2 < $i1} {
+	    foreach {slot1 slot2 i1 i2} [list $slot2 $slot1 $i2 $i1] break
+	}
+	# get the tiles played in the slots
+	set name1 [$self get-slot-name $slot1]
+	set name2 [$self get-slot-name $slot2]
+	# get the indexes where the move is played
+	set j1 [lsearch $moves $name1]
+	set j2 [lsearch $moves $name2]
+	# test our understanding
+	if {$i1 != $j1+1 || $j2 != $i1+1 || $i2 != $j2+1 || ($j1%4) != 0} {
+	    error "misunderstood the structure of moves"
+	}
+	# remove the slots and names from play
+	$self set-slot-name $slot1 {}
+	$self set-slot-name $slot2 {}
+	$self set-name-slot $name1 {}
+	$self set-name-slot $name2 {}
+	# remove the move from $moves
+	set moves [lreplace $moves $j1 $j1+3]
+	# return the slots to $slots
+	lappend slots $slot1 $slot2
+	# return the tiles to $names
+	lappend names $name1 $name2
+	# return
+	return [list $moves $slots $names]
+    }
+
+    ##
     ## game play/unplay mechanics
     ##
     method find-slots-in-play {} {
@@ -2212,10 +2453,55 @@ snit::widgetadaptor mahjong::canvas {
 	return $moves
     }
     
+    proc slot-histogram {slots} {
+	set stats [dict create -1 [llength $slots] 0 0 1 0 2 0 3 0 4 0 5 0 6 0]
+	foreach slot $slots { dict incr stats [lindex $slot 2] }
+	return $stats
+    }
+    method stats-for-slots {slots} {
+	set hist [slot-histogram $slots]
+	set full [slot-histogram [$self get-all-slots]]
+	set quot {}
+	foreach n [dict keys $hist] { lappend quot "[dict get $hist $n]/[dict get $full $n]" }
+	return $quot
+    }
     method find-can-unplay {slots {donotblock {}}} {
-	foreach slot $slots {
-	    if {[$self can-unplay $slot $donotblock]} { return $slot }
+	if {0} {
+	    set veryfirst {}
+	    foreach slot [$self find-all-can-unplay $slots $donotblock] {
+		if {[$self is-naked-endcap $slot]} { 
+		    if {$veryfirst eq {}} { set veryfirst $slot }
+		} else {
+		    return $slot
+		}
+	    }
+	    if {$veryfirst ne {}} { return $veryfirst }
+	} else {
+	    foreach slot $slots {
+		if {[$self can-unplay $slot $donotblock]} {
+		    return $slot
+		}
+	    }
 	}
+	if { ! [dict exists $data fp]} {
+	    dict set data fp [open "trace.data" w]
+	}
+	set fp [dict get $data fp]
+	# set fp stdout
+	puts $fp "cannot unplay donotblock={$donotblock}: all={[$self find-all-can-unplay $slots]} [$self stats-for-slots $slots]"
+	puts $fp "  slots={$slots}"
+	puts $fp "  moves={[uplevel {set moves}]}"
+	if {0} {
+	    foreach slot {{1.0 1.0 1} {2.0 1.0 1} {3.0 1.0 1}} {
+		puts $fp "  can-unplay $slot [$self can-unplay $slot]"
+		puts $fp "  covers-empty-in-z $slot [$layout covers-empty-in-z $slot]"
+		puts $fp "  is-empty $slot [$layout is-empty $slot]"
+		puts $fp "  covers-empty-in-x $slot [$layout covers-empty-in-x $slot]"
+		puts $fp "  row-closure $slot [$layout row-closure $slot]"
+	    }
+	}
+	flush $fp
+	return {}
 	error "cannot unplay"
     }
     method find-all-can-unplay {slots {donotblock {}}} {
@@ -2238,17 +2524,9 @@ snit::widgetadaptor mahjong::canvas {
     ##
     ##
     method draw {slot name} {
-	set twid [$self cget -width];   # tile width
-	set thgt [$self cget -height];  # tile height
-	set xstep [expr {$twid/10.0}];  # offset for 3d border
-	set ystep [expr {$thgt/9.0}];  # offset for 3d border
-	set fwid [expr {$twid-$xstep}];	# tile face width
-	set fhgt [expr {$thgt-$ystep}];	# tile face height
-	foreach {x y z} $slot break;	# slot
-	set x [expr {$x*$fwid + $z*$xstep}]
-	set y [expr {$y*$fhgt - $z*$ystep}]
+	foreach {x y} [$self xy-for-slot $slot] break
 	if {[$win find withtag $name] eq {}} {
-	    set scale [expr {$twid/64.0}]
+	    set scale [expr {[$self cget -width]/64.0}]
 	    $tiles draw $win $name 0 0 1
 	    $win scale $name 0 0 $scale $scale
 	    foreach id [$win find withtag $name] {
@@ -2448,22 +2726,16 @@ set mymap {
     {tile z 6 x 5 y 3}
 }
 
-# create the game window
-# with the layout and 
-# the tile images for the game
-# this is a tile width that works at 2560x1700 
-
-# set width 171
-
 # this by itself should trigger
-# a reselection of fonts at 4x the default size
-# but all it does is change the sizes of windows
-# tk scaling 5.33
+# a reselection of fonts at 2x the default size
+# but all it seems to do is change the sizes of windows
+tk scaling 2.49
 
 # some say that tk scaling should be set from the
 # result of expr {double([winfo screenwidth .])/([winfo screenmmwidth .]/25.40)}
 # however this reports 96 dpi on my pixel, but it also claims I have a 26.6 inch 
 # wide screen with 2560 pixels, but the screen is roughly a foot wide.
+# xrandr -q reports a more realistic
 
 #this doesn't change anything that I can see
 #font create Font -family Helvetica -size 14
@@ -2498,14 +2770,17 @@ if {1} {
     # and message font out of
     # option add *Dialog.msg.wrapLength 3i widgetDefault
     # option add *Dialog.msg.font TkCaptionFont widgetDefault
-
+    option add *Canvas.background \#323657 startupFile
 }
-#  -width $width
 
-pack [mahjong::canvas .c -background \#323657 \
+# create the game window
+# with the layout and 
+# the tile images for the game
+pack [mahjong::canvas .c \
 	  -layout [mahjong::layout ::layout -map $mymap] \
 	  -tiles [mahjong::tiles ::tiles -svg postmodern.svg] \
 	  -prefs [mahjong::prefs ::prefs] \
 	  {*}$argv \
 	 ] -fill both -expand true
-.c first-game {*}$argv
+# start the first game
+.c first-game
