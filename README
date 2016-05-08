@@ -1,12 +1,38 @@
-This is an implementation of Mahjong solitaire in Tcl/Tk/Snit/Img.
-Because I play gnome-mahjongg all the time and I wanted to change it.
-This was a lot easier and faster for me than learning how to use the 
+This is an implementation of Mahjong solitaire in Tcl/Tk/Snit.
+
+Because I play gnome-mahjongg all the time and I wanted to change it,
+this was a lot easier and faster for me than learning how to use the 
 gnome games framework.
 
-The script should run on Linux, Windows, and MacOS using the ActiveTcl
-distribution from activestate.com.
+The script should runs on Ubuntu 16.04 with the standard tcl/tk installation
+and the tcllib collection of pure-Tcl libraries.  It should run on any Linux,
+Windows, or MacOS installation using the ActiveTcl distribution from 
+activestate.com.
+
+The mahjong script is the entire source for the program including the layout
+definition and the svg graphics for the tiles.  3300 lines of code total.
 
 Yet to do:
+
+[ ] Implement scores
+[ ] Implement help.
+[ ] Implement save/restore
+[ ] Switch back to using xml layout descriptor
+[ ] Implement right/left cursor cycling through hints?
+  This doesn't actually work, though I suppose that
+  if you select a tile, hint might cycle through the
+  matching tiles.  So you could implement a cursor motion
+  key mode which cycled through the selectable tiles, used
+  <return> to select and then cycled through the selectable 
+  matches, and finally used <return> to select the play, or
+  used <backspace> to cancel the first selection.
+[ ] there is a white streak in the upper swash of the West character
+  path4304, resisted attempts to fix it
+[ ] the coins fade at reduced scale, need width boosting
+[ ] End of game dialog when winning should enter the scores window
+[ ] Rewrite tk for khronos graphics, or opengl, or svg, or all three
+
+Done:
 
 [x] Make undo/redo work correctly.
 [x] Make undo/redo work on the game generation thread.
@@ -80,22 +106,4 @@ next to the failed move and used the same tiles, that makes two failures
 [x] ystep is too steep
 [x] redo into game over doesn't get the same reaction as manually selecting
   the same result
-[ ] move svg data into the script
-[ ] Switch back to using xml layout descriptor
-[ ] Implement save/restore
-[ ] Implement scores
-[ ] Implement help.
-[ ] Implement right/left cursor cycling through hints?
-  This doesn't actually work, though I suppose that
-  if you select a tile, hint might cycle through the
-  matching tiles.  So you could implement a cursor motion
-  key mode which cycled through the selectable tiles, used
-  <return> to select and then cycled through the selectable 
-  matches, and finally used <return> to select the play, or
-  used <backspace> to cancel the first selection.
-[ ] there is a white streak in the upper swash of the West character
-  path4304, resisted attempts to fix it
-[ ] the coins fade at reduced scale, need width boosting
-[ ] End of game dialog when winning should enter the scores window
-[ ] Rewrite tk for khronos graphics, or opengl, or svg, or all three
-
+[x] move svg data into the script
