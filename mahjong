@@ -2195,6 +2195,7 @@ snit::widgetadaptor mahjong::canvas {
     method move-redo {name1 slot1 name2 slot2} {
 	$self tile-unplace $slot1 $name1
 	$self tile-unplace $slot2 $name2
+	$self update-score
     }
     
     ##

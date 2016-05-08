@@ -78,6 +78,9 @@ repeated for a second or third deadlock.
 next to the failed move and used the same tiles, that makes two failures
 [x] altering window size while drawing tiles results in misplaced tiles
 [x] ystep is too steep
+[x] redo into game over doesn't get the same reaction as manually selecting
+  the same result
+[ ] move svg data into the script
 [ ] Switch back to using xml layout descriptor
 [ ] Implement save/restore
 [ ] Implement scores
@@ -94,7 +97,5 @@ next to the failed move and used the same tiles, that makes two failures
   path4304, resisted attempts to fix it
 [ ] the coins fade at reduced scale, need width boosting
 [ ] End of game dialog when winning should enter the scores window
-[ ] redo into game over doesn't get the same reaction as manually selecting
-  the same result
 [ ] Rewrite tk for khronos graphics, or opengl, or svg, or all three
 
