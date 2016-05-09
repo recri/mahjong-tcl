@@ -30,6 +30,8 @@ Yet to do:
   path4304, resisted attempts to fix it
 [ ] the coins fade at reduced scale, need width boosting
 [ ] End of game dialog when winning should enter the scores window
+[ ] Make a "raw deal" preference which does not guarantee solubility,
+  requires alteration to game over explanation.
 [ ] Rewrite tk for khronos graphics, or opengl, or svg, or all three
 
 Done:
@@ -107,3 +109,4 @@ next to the failed move and used the same tiles, that makes two failures
 [x] redo into game over doesn't get the same reaction as manually selecting
   the same result
 [x] move svg data into the script
+[x] fixed tile miscount

@@ -1364,6 +1364,7 @@ snit::type mahjong::svg {
 	}
 	return $list
     }
+
     method in-defs {ctags} {
 	return [expr {$defsid ne {} && [lsearch $ctags $defsid] >= 0}]
     }
@@ -1608,6 +1609,7 @@ snit::widgetadaptor mahjong::canvas {
     option -trace false
     option -infinite false
     option -watch true
+    option -raw-deal false
 
     component layout
     component tiles
@@ -1657,7 +1659,7 @@ snit::widgetadaptor mahjong::canvas {
     method get-all-slots {} { return [$options(-layout) get-slots] }
     
     method get-remaining-tiles {} {
-	return [lmap name [$self get-tiles] {expr {[$self get-name-slot $name] ne {}?$name:[continue]}}]
+	return [lmap name [$self get-tiles] {expr {[$self get-name-slot $name] ne {} ? $name : [continue]}}]
     }
 
     method tile-sizes {} {
@@ -2147,7 +2149,6 @@ snit::widgetadaptor mahjong::canvas {
     method history-get-items {} { return [dict get $data history items] }
     method history-add {nm1 sl1 nm2 sl2} {
 	$self clear-selected
-	incr options(-remaining-tiles) -2
 	dict with data history {
 	    if {[llength $items] > $count} {
 		set items [lrange $items 0 $count-1]
@@ -2161,7 +2162,6 @@ snit::widgetadaptor mahjong::canvas {
     method history-undo {} {
 	# step back
 	$self clear-selected
-	incr options(-remaining-tiles) 2
 	dict with data history {
 	    incr count -1
 	    $self move-undo {*}[lindex $items $count]
@@ -2175,7 +2175,6 @@ snit::widgetadaptor mahjong::canvas {
     method history-redo {} {
 	# step forward
 	$self clear-selected
-	incr options(-remaining-tiles) -2
 	dict with data history {
 	    $self move-redo {*}[lindex $items $count]
 	    incr count 1
@@ -2239,18 +2238,24 @@ snit::widgetadaptor mahjong::canvas {
 	set names $options(-shuffled-tiles)
 	set slots $options(-shuffled-slots)
 	set moves {}
+	set options(-remaining-tiles) 0
 	
 	# make an initial update
 	if {$options(-watch)} update
 	
 	while {[llength $names]} {
-	    set options(-remaining-tiles) [llength $names]
-	    
+	    if {$options(-remaining-tiles) != 144-[llength $names]} {
+		puts "-remaining-tiles $options(-remaining-tiles) != 144-llength names 144-[llength $names]"
+	    }
+	    if {$options(-remaining-tiles) != [llength [$self get-remaining-tiles]]} {
+		puts "-remaining-tiles $options(-remaining-tiles) !=  llength get-remaining-tiles [llength [$self get-remaining-tiles]]"
+	    }
+
 	    ## choose the pair of matched tiles to play
 	    # take first and second tiles in name list
 	    foreach {name1 name2} $names break
 	    set names [lrange $names 2 end]
-	    
+
 	    # take first open slot in slot list
 	    set slot1 [$self find-can-unplay $slots]
 	    if {$slot1 eq {}} {
@@ -2366,7 +2371,9 @@ snit::widgetadaptor mahjong::canvas {
 	$self adjust-window $win
 	
 	# compute
-	set options(-remaining-tiles) [llength [$self get-remaining-tiles]]
+	if {$options(-remaining-tiles) != [llength [$self get-remaining-tiles]]} {
+	    puts "-remaining-tiles $options(-remaining-tiles) !=  llength get-remaining-tiles [llength [$self get-remaining-tiles]]"
+	}
 	set options(-remaining-moves) [$self count-moves]
     }
     
@@ -2408,10 +2415,12 @@ snit::widgetadaptor mahjong::canvas {
 	    error "misunderstood the structure of moves"
 	}
 	# remove the slots and names from play
-	$self set-slot-name $slot1 {}
-	$self set-slot-name $slot2 {}
-	$self set-name-slot $name1 {}
-	$self set-name-slot $name2 {}
+	$self tile-unplace $slot1 $name1
+	$self tile-unplace $slot2 $name2
+	#$self set-slot-name $slot1 {}
+	#$self set-slot-name $slot2 {}
+	#$self set-name-slot $name1 {}
+	#$self set-name-slot $name2 {}
 	# remove the move from $moves
 	set moves [lreplace $moves $j1 $j1+3]
 	# return the slots to $slots
@@ -2577,12 +2586,16 @@ snit::widgetadaptor mahjong::canvas {
 	$win bind $name <Enter> [list {*}[mymethod enter] $slot $name]
 	$win bind $name <Leave> [list {*}[mymethod leave] $slot $name]
 	$self raise-in-render-order
+	incr options(-remaining-tiles) 1
     }
     
     method tile-unplace {slot name} {
  	$self set-name-slot $name {}
 	$self set-slot-name $slot {}
 	$self hide $slot $name
+	$win bind $name <Enter> {}
+	$win bind $name <Leave> {}
+	incr options(-remaining-tiles) -1
     }
     method tile-is-placed {slot name} {
 	return [expr {[$self get-slot-name $slot] eq $name}]
