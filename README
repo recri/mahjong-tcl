@@ -110,3 +110,5 @@ next to the failed move and used the same tiles, that makes two failures
   the same result
 [x] move svg data into the script
 [x] fixed tile miscount
+[x] undo from gameover dialog doesn't undo the last move
+[x] save scores [list time elapsed game remaining-tiles]

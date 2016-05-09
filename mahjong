@@ -122,28 +122,22 @@ snit::type mahjong::prefs {
 	}
 	return [array get prefs]
     }
-    method save-scores {dict} {
+    method save-scores {list} {
 	if {[catch {
 	    set fp [open [$self resolve scores.tcl] w] 
-	    dict for {name value} $dict {
-		puts $fp [list $key $value]
-	    }
+	    puts $fp [join $list \n]
 	    close $fp
 	} error]} {
 	}
     }
     method load-scores {} {
 	if {[catch {
-	    set dict [dict create]
 	    set fp [open [$self resolve scores.tcl] r] 
-	    while {[gets $fp line] >= 0} {
-		foreach {key value} $line break
-		dict set dict $key $value
-	    }
+	    set list [split [string trim [read $fp]] \n]
 	    close $fp
-	    return $dict
+	    return $list
 	} error]} {
-	    return $dict
+	    return {}
 	}
     }
 }
@@ -1934,6 +1928,7 @@ snit::widgetadaptor mahjong::canvas {
     
     method initialize-window {} {
 	if {[catch {$self load-prefs} error]} { $self trace-puts "load-prefs: $error\n$::errorInfo" }
+	if {[catch {$self load-scores} error]} { $self trace-puts "load-scores: $error\n$::errorInfo" }
     }
 
     method save-prefs {} {
@@ -1942,6 +1937,9 @@ snit::widgetadaptor mahjong::canvas {
 					 fullscreen [wm attributes . -fullscreen] \
 					 geometry [wm geometry .] \
 					]
+    }
+    method save-scores {} {
+	$options(-prefs) save-scores [dict get $data scores]
     }
     method load-prefs {} {
 	array set prefs [$options(-prefs) load-prefs]
@@ -1953,6 +1951,9 @@ snit::widgetadaptor mahjong::canvas {
 	} elseif {[info exists prefs(geometry)]} {
 	    wm geometry . $prefs(geometry)
 	}
+    }
+    method load-scores {} {
+	dict set data scores [$options(-prefs) load-scores]
     }
     ##
     ## game play helpers
@@ -2057,10 +2058,15 @@ snit::widgetadaptor mahjong::canvas {
 	}
     }
     
+    method score-game {time elapsed game result} {
+	dict lappend data scores [list $time $elapsed $game $result]
+	$self save-scores
+    }
     method update-score {} {
 	set options(-remaining-moves) [$self count-moves]
 	if {$options(-remaining-moves) == 0} {
 	    $self stop-timer
+	    $self score-game [clock seconds] [$self elapsed-time] $options(-game) $options(-remaining-tiles)
 	    if {$options(-remaining-tiles) > 0} {
 		# game lost
 		set title {There are no more moves.}
@@ -2079,7 +2085,7 @@ snit::widgetadaptor mahjong::canvas {
 		    }
 		}
 	    } else {
-		# game won
+		# game won, open scores dialog
 		set title {You won.}
 		set text {Congratulations, you have solved the puzzle.}
 		set bitmap {}
@@ -2164,19 +2170,20 @@ snit::widgetadaptor mahjong::canvas {
 	$self clear-selected
 	dict with data history {
 	    incr count -1
-	    $self move-undo {*}[lindex $items $count]
+	    $self move-place {*}[lindex $items $count]
 	    if {$count > 0} {
 		$self menu-enable-disable {Undo Redo} {}
 	    } else {
 		$self menu-enable-disable {Redo} {Undo}
 	    }
 	}
+	$self update-score
     }
     method history-redo {} {
 	# step forward
 	$self clear-selected
 	dict with data history {
-	    $self move-redo {*}[lindex $items $count]
+	    $self move-unplace {*}[lindex $items $count]
 	    incr count 1
 	    if {$count < $future} {
 		$self menu-enable-disable {Undo Redo} {}
@@ -2184,16 +2191,6 @@ snit::widgetadaptor mahjong::canvas {
 		$self menu-enable-disable {Undo} {Redo}
 	    }
 	}
-    }
-    
-    method move-undo {name1 slot1 name2 slot2} {
-	$self tile-place $slot1 $name1
-	$self tile-place $slot2 $name2
-	$self update-score
-    }
-    method move-redo {name1 slot1 name2 slot2} {
-	$self tile-unplace $slot1 $name1
-	$self tile-unplace $slot2 $name2
 	$self update-score
     }
     
@@ -2577,6 +2574,14 @@ snit::widgetadaptor mahjong::canvas {
     ##
     ##
     ##
+    method move-place {name1 slot1 name2 slot2} {
+	$self tile-place $slot1 $name1
+	$self tile-place $slot2 $name2
+    }
+    method move-unplace {name1 slot1 name2 slot2} {
+	$self tile-unplace $slot1 $name1
+	$self tile-unplace $slot2 $name2
+    }
     method tile-place {slot name} {
 	#$self trace-puts "$self tile-place $slot $name $draw"
 	$self set-slot-name $slot $name
@@ -2638,11 +2643,11 @@ snit::widgetadaptor mahjong::canvas {
 		    # start counting time
 		    $self start-timer
 		    # remove the tiles from play
-		    $self move-redo $name1 $slot1 $name2 $slot2
+		    $self move-unplace $name1 $slot1 $name2 $slot2
 		    # keep history
 		    $self history-add $name1 $slot1 $name2 $slot2
 		    # keep score
-		    after 0 [list {*}[mymethod update-score]]
+		    $self update-score
 		} else {
 		    # select the new tile in place of the old one
 		    $self set-selected $slot1 $name1
