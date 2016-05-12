@@ -108,6 +108,8 @@ snit::type mahjong::prefs {
 	}
     }
     method load-prefs {} {
+	# puts "enter load-prefs in mahjong::prefs"
+	array set prefs {}
 	if {[catch {
 	    set fp [open [$self resolve prefs.tcl] r]
 	    set data [read $fp]
@@ -115,10 +117,10 @@ snit::type mahjong::prefs {
 	    if {[string first {array set prefs} $data] != 0} {
 		error "malformed prefs.tcl"
 	    }
+	    # puts "read prefs.tcl = {$data}"
 	    eval $data
 	} error]} {
 	    # puts "error in load-prefs: $error\n$::errorInfo"
-	    return {}
 	}
 	return [array get prefs]
     }
@@ -128,17 +130,20 @@ snit::type mahjong::prefs {
 	    puts $fp [join $list \n]
 	    close $fp
 	} error]} {
+	    puts "$self save-scores {...} $error\n$::errorInfo"
 	}
     }
     method load-scores {} {
+	set list {}
 	if {[catch {
 	    set fp [open [$self resolve scores.tcl] r] 
 	    set list [split [string trim [read $fp]] \n]
 	    close $fp
-	    return $list
 	} error]} {
-	    return {}
+	    puts "$self save-scores {...} $error\n$::errorInfo"
+	    set list {}
 	}
+	return $list
     }
 }
 
@@ -1627,7 +1632,7 @@ snit::widgetadaptor mahjong::canvas {
     delegate option * to hull
     delegate method * to hull
     
-    variable data [dict create selected {} paused false]
+    variable data [dict create selected {} paused false scores {}]
     
     constructor {args} {
 	if {$::usetkpath} {
@@ -1641,8 +1646,11 @@ snit::widgetadaptor mahjong::canvas {
 	$self configure {*}$args
 	set layout $options(-layout)
 	set tiles $options(-tiles)
+	set prefs $options(-prefs)
+	if {[catch {$self load-prefs} error]} { $self trace-puts "load-prefs: $error\n$::errorInfo" }
+	if {[catch {$self load-scores} error]} { $self trace-puts "load-scores: $error\n$::errorInfo" }
+	$self configure {*}$args; # command line options override preferences
 	$self menu-build
-	$self initialize-window
     }
     
     method set-name-slot {name slot} { dict set data name-to-slot $name $slot }
@@ -1813,30 +1821,53 @@ snit::widgetadaptor mahjong::canvas {
     }
     method undo {} { $self history-undo }
     method redo {} { $self history-redo }
-    
     method menu-menu {} { $self menu-popup . 100 100 }
-    
-    method scores {} {}
-    method preferences {} {}
-    method help {} { puts "help called" }
+    method scores {} { $self scores-window }
+    method scores-window {} {
+	toplevel .scores
+	wm title .scores {Scores}
+	pack [ttk::button .scores.close -text Close -command [list destroy .scores]] -side top
+
+    }
+    method preferences {} {
+	toplevel .preferences
+	wm title .preferences {Preferences}
+	foreach opt {watch raw-deal trace} {
+	    pack [ttk::checkbutton .preferences.$opt -text $opt -variable [myvar options(-$opt)]] -side top -expand true -fill x
+	}
+	pack [ttk::button .preferences.close -text Close -command [list destroy .preferences]] -side top
+	#report-option-classes .preferences
+    }
+    method help {} { 
+	toplevel .help
+	wm title .help {Help}
+	grid [text .help.text -yscrollcommand [list .help.scrollbar set]] -column 0 -row 0 -sticky nsew
+	foreach t {
+	    {Mahjong solitaire is played by selecting matching pairs of tiles and removing them from the layout.}
+	    {}
+	    {The layout is constructed so that there is always at least one solution.}
+	    {}
+	    {The controls are available as hot key commands or from a right mouse menu on the game's background.}
+	} {
+	    .help.text insert end $t\n
+	}
+	grid [ttk::scrollbar .help.scrollbar -orient vertical -command [list .help.text yview]] -column 1 -row 0 -sticky ns
+	grid [ttk::button .help.close -text Close -command [list destroy .help]] -column 0 -row 1 -columnspan 2
+    }
     method by-name {} {
 	toplevel .byname
 	wm title .byname {By Name}
 	grid [ttk::label .byname.l -text {Choose game by name}] -row 1 -column 0 -columnspan 2 -sticky ew 
 	grid [ttk::entry .byname.e] -row 2 -column 0 -columnspan 2 -sticky ew
 	.byname.e insert end [format-game $options(-game)]
-	grid [ttk::button .byname.okay -text Okay -command [list {*}[mymethod by-name-finish] okay]] -row 3 -column 0 -sticky ew
-	grid [ttk::button .byname.cancel -text Cancel -command [list {*}[mymethod by-name-finish] cancel]] -row 3 -column 1 -sticky ew
+	grid [ttk::button .byname.okay -text Okay -command [mymethod by-name-okay]] -row 3 -column 0 -sticky ew
+	grid [ttk::button .byname.cancel -text Cancel -command [list destroy .byname]] -row 3 -column 1 -sticky ew
 	#report-option-classes .byname
     }
-    method by-name-finish {how} {
-	if {$how eq {okay}} { 
-	    set options(-game) [scan-game [.byname.e get]]
-	    destroy .byname
-	    $self new-game $options(-game)
-	} else {
-	    destroy .byname
-	}
+    method by-name-okay {how} {
+	set options(-game) [scan-game [.byname.e get]]
+	destroy .byname
+	$self new-game $options(-game)
     }
     method draw-frame {level} {
 	$win delete frame
@@ -1926,30 +1957,34 @@ snit::widgetadaptor mahjong::canvas {
 	if {[catch {$self save-prefs} error]} { $self trace-puts "save-prefs: $error\n$::errorInfo" }
     }
     
-    method initialize-window {} {
-	if {[catch {$self load-prefs} error]} { $self trace-puts "load-prefs: $error\n$::errorInfo" }
-	if {[catch {$self load-scores} error]} { $self trace-puts "load-scores: $error\n$::errorInfo" }
-    }
-
     method save-prefs {} {
 	$options(-prefs) save-prefs [list \
 					 zoomed [wm attributes . -zoomed] \
 					 fullscreen [wm attributes . -fullscreen] \
 					 geometry [wm geometry .] \
+					 watch $options(-watch) \
+					 raw-deal $options(-raw-deal) \
+					 trace $options(-trace) \
 					]
     }
     method save-scores {} {
 	$options(-prefs) save-scores [dict get $data scores]
     }
     method load-prefs {} {
+	#puts "enter load-prefs in mahjong::canvas"
 	array set prefs [$options(-prefs) load-prefs]
-	# $self trace-puts "load-prefs prefs are {[array get prefs]}"
+	#puts "load-prefs prefs are {[array get prefs]}"
 	if {[info exists prefs(fullscreen)] && $prefs(fullscreen)} {
 	    wm attributes . -fullscreen 1
 	} elseif {[info exists prefs(zoomed)] && $prefs(zoomed)} {
 	    wm attributes . -zoomed 1
 	} elseif {[info exists prefs(geometry)]} {
 	    wm geometry . $prefs(geometry)
+	}
+	foreach v {watch trace raw-deal} {
+	    if {[info exists prefs($v)]} {
+		set options(-$v) $prefs($v)
+	    }
 	}
     }
     method load-scores {} {
@@ -2062,6 +2097,7 @@ snit::widgetadaptor mahjong::canvas {
 	dict lappend data scores [list $time $elapsed $game $result]
 	$self save-scores
     }
+
     method update-score {} {
 	set options(-remaining-moves) [$self count-moves]
 	if {$options(-remaining-moves) == 0} {
@@ -3284,30 +3320,33 @@ set mysvg {<svg id="svg3455" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-
   <use id="use3812" y="88" x="2688" xlink:href="#selected-tile"/>
 </svg>}
 
-# this by itself should trigger
-# a reselection of fonts at 2x the default size
-# but all it seems to do is change the sizes of windows
-tk scaling 2.49
-
-# some say that tk scaling should be set from the
-# result of expr {double([winfo screenwidth .])/([winfo screenmmwidth .]/25.40)}
-# however this reports 96 dpi on my pixel, but it also claims I have a 26.6 inch 
-# wide screen with 2560 pixels, but the screen is roughly a foot wide.
-# xrandr -q reports a more realistic
-
-#this doesn't change anything that I can see
-#font create Font -family Helvetica -size 14
-#option add *.font Font widgetDefault
-
 if {1} {
+    # make the fonts bigger
+    
+    # this by itself should trigger
+    # a reselection of fonts at roughly 2x the default size
+    # but all it seems to do is change the sizes of windows
+    tk scaling 2.49
+
+    # some say that tk scaling should be set from the
+    # result of expr {double([winfo screenwidth .])/([winfo screenmmwidth .]/25.40)}
+    # however this reports 96 dpi on my pixel, but it also claims I have a 26.6 inch 
+    # wide screen with 2560 pixels, but the screen is roughly a foot wide.
+    # xrandr -q reports a more realistic screen size
+
+    #this doesn't change anything that I can see
+    #font create Font -family Helvetica -size 14
+    #option add *.font Font widgetDefault
+    # it may be that a global widgetDefault gets overridden by more specific
+    # widgetDefault priority settings
 
     # these on the other hand trigger some
     # larger fonts in Menus and Buttons on some 
     # tk_dialogs
     #
-    set fonts(Helvetica-14) {Menu Label Dialog Message Button Menubutton Checkbutton Radiobutton TLabel TButton Dialog.msg}
+    set fonts(Helvetica-14) {Menu Label Dialog Message Button Menubutton Checkbutton Radiobutton TLabel TButton TCheckbutton Dialog.msg}
     set fonts(Courier-14) {Entry Text TEntry}
-    set fonts(styled) TButton
+    set fonts(styled) {TButton TCheckbutton}
 
     foreach font {Helvetica-14 Courier-14} {
 	foreach {fname fsize} [split $font -] break

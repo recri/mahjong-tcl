@@ -33,6 +33,7 @@ Yet to do:
 [ ] Make a "raw deal" preference which does not guarantee solubility,
   requires alteration to game over explanation.
 [ ] Rewrite tk for khronos graphics, or opengl, or svg, or all three
+[ ] Should not allow plays while new deal is being laid
 
 Done:
 
@@ -112,3 +113,4 @@ next to the failed move and used the same tiles, that makes two failures
 [x] fixed tile miscount
 [x] undo from gameover dialog doesn't undo the last move
 [x] save scores [list time elapsed game remaining-tiles]
+[x] fixed scores list save and restore, returning through catch
