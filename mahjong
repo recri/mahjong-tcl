@@ -1632,7 +1632,7 @@ snit::widgetadaptor mahjong::canvas {
     delegate option * to hull
     delegate method * to hull
     
-    variable data [dict create selected {} paused false scores {}]
+    variable data [dict create selected {} paused false scores {} current-score {}]
     
     constructor {args} {
 	if {$::usetkpath} {
@@ -1954,7 +1954,8 @@ snit::widgetadaptor mahjong::canvas {
 		
     method destroy-window {window} {
 	if {$window ne $win} return
-	if {[catch {$self save-prefs} error]} { $self trace-puts "save-prefs: $error\n$::errorInfo" }
+	catch {$self score-game-save}
+	catch {$self save-prefs}
     }
     
     method save-prefs {} {
@@ -2065,6 +2066,7 @@ snit::widgetadaptor mahjong::canvas {
     }
     
     method reset-timer {} {
+	set options(-start-game) [clock seconds]
 	set options(-start-timer) 0
 	set options(-stop-timer) 0
     }
@@ -2093,16 +2095,21 @@ snit::widgetadaptor mahjong::canvas {
 	}
     }
     
-    method score-game {time elapsed game result} {
-	dict lappend data scores [list $time $elapsed $game $result]
-	$self save-scores
+    method score-game {time elapsed game remaining-moves remaining-tiles} {
+	dict set data current-score [list $time $elapsed $game ${remaining-moves} ${remaining-tiles}]
     }
-
+    method score-game-save {} {
+	if {[dict get $data current-score] ne {}} {
+	    dict lappend data scores [dict get $data current-score]
+	    $self save-scores
+	}
+	dict set data current-score {}
+    }
     method update-score {} {
 	set options(-remaining-moves) [$self count-moves]
+	$self score-game $options(-start-game) [$self elapsed-time] $options(-game) $options(-remaining-moves) $options(-remaining-tiles)
 	if {$options(-remaining-moves) == 0} {
 	    $self stop-timer
-	    $self score-game [clock seconds] [$self elapsed-time] $options(-game) $options(-remaining-tiles)
 	    if {$options(-remaining-tiles) > 0} {
 		# game lost
 		set title {There are no more moves.}
@@ -2251,6 +2258,8 @@ snit::widgetadaptor mahjong::canvas {
     ## start or restart the currently setup game
     ##
     method restart {} {
+	# save the result of the last game
+	$self score-game-save
 	# reset timer
 	$self reset-timer
 	# clear selection
@@ -2266,6 +2275,10 @@ snit::widgetadaptor mahjong::canvas {
 	}
 	# reset name to slot map
 	foreach name [$self get-tiles] { $self set-name-slot $name {} }
+
+	# one update if we are not watch to clear the board
+	if { ! $options(-watch)} update
+
 	
 	# pick matching pairs from available
 	set names $options(-shuffled-tiles)
