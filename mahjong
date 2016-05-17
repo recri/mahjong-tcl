@@ -1609,6 +1609,8 @@ snit::widgetadaptor mahjong::canvas {
     option -infinite false
     option -watch true
     option -raw-deal false
+    option -zoomed -default true -configuremethod wm-attribute
+    option -fullscreen -default false -configuremethod wm-attribute
 
     component layout
     component tiles
@@ -1653,6 +1655,14 @@ snit::widgetadaptor mahjong::canvas {
 	$self menu-build
     }
     
+    method {wm-attribute -zoomed} {value} {
+	set options(-zoomed) $value
+	wm attribute . -zoomed $value
+    }
+    method {wm-attribute -fullscreen} {value} {
+	set options(-fullscreen) $value
+	wm attribute . -fullscreen $value
+    }
     method set-name-slot {name slot} { dict set data name-to-slot $name $slot }
     method get-name-slot {name} { return [dict get $data name-to-slot $name] }
     method set-slot-name {slot name} { $options(-layout) set-slot $slot $name }
@@ -1960,8 +1970,8 @@ snit::widgetadaptor mahjong::canvas {
     
     method save-prefs {} {
 	$options(-prefs) save-prefs [list \
-					 zoomed [wm attributes . -zoomed] \
-					 fullscreen [wm attributes . -fullscreen] \
+					 zoomed $options(-zoomed) \
+					 fullscreen $options(-fullscreen) \
 					 geometry [wm geometry .] \
 					 watch $options(-watch) \
 					 raw-deal $options(-raw-deal) \
