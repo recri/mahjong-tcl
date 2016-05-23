@@ -12,6 +12,10 @@ activestate.com.
 The mahjong script is the entire source for the program including the layout
 definition and the svg graphics for the tiles.  3300 lines of code total.
 
+This is now running on the androwish and undroidwish versions of Tcl/Tk, because
+the canvas is too slow to draw complicated figures and the standard Tk image photo
+zoomed copy does not support rational resampling.
+
 Yet to do:
 
 [ ] Implement scores
@@ -34,6 +38,7 @@ Yet to do:
   requires alteration to game over explanation.
 [ ] Rewrite tk for khronos graphics, or opengl, or svg, or all three
 [ ] Should not allow plays while new deal is being laid
+[ ] Icons 144x144 (XXHDPI), 96x96 (XHDPI), 72x72 (HDPI), and 48x48 (MDPI)
 
 Done:
 
