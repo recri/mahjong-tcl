@@ -1,7 +1,9 @@
 #!/bin/sh
 # -*- mode: Tcl; tab-width: 8; -*-
 # the next line is a tcl comment \
-exec unwish "$0" -sdlresizable ${1+"$@"}
+exec undroidwish "$0" -sdlresizable ${1+"$@"}
+
+# exec unwish "$0" -sdlresizable ${1+"$@"}
 #exec sdl2wish8.6 "$0" -sdlresizable ${1+"$@"}
 
 #
