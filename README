@@ -39,6 +39,7 @@ Yet to do:
 [ ] Rewrite tk for khronos graphics, or opengl, or svg, or all three
 [ ] Should not allow plays while new deal is being laid
 [ ] Icons 144x144 (XXHDPI), 96x96 (XHDPI), 72x72 (HDPI), and 48x48 (MDPI)
+[ ] Get menu display on Android.
 
 Done:
 

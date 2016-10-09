@@ -1,0 +1,47 @@
+#!/usr/local/bin/wish8.7
+
+set img [image create photo -file new-tiles.png]
+pack [label .img -image $img] -fill both -expand true -side top
+set img2 [image create photo]
+$img2 copy $img
+set img3 [image create photo]
+pack [label .img2 -image $img2] -fill both -expand true -side top
+pack [frame .f] -side top -fill x -expand true
+pack [label .f.l1 -text num] -side left
+pack [spinbox .f.s1 -from 1 -to 100] -side left
+pack [label .f.l2 -text den] -side left
+pack [spinbox .f.s2 -from 1 -to 100] -side left
+pack [button .f.go -text go -command rescale] -side left
+proc rescale {} {
+    set zoom [.f.s1 get]
+    set subs [.f.s2 get]
+    set ow [image width $::img]
+    set oh [image height $::img]
+    set nw [expr {$ow*$zoom/$subs}]
+    set nh [expr {$oh*$zoom/$subs}]
+    # puts "rescale from $ow x $oh to $nw x $nh"
+    for {set i 0} {$i < $nh} {incr i} {
+	set oi [expr {$i*$subs/$zoom}]
+	if {$oi >= $oh} { puts "dest i=$i maps to $oi >= $oh" }
+    }
+    for {set j 0} {$j < $nw} {incr j} {
+	set oj [expr {$j*$subs/$zoom}]
+	if {$oj >= $ow} { puts "dest j=$j maps to $oj >= $ow" }
+    }
+    if {0} {
+	$::img3 blank
+	$::img3 copy $::img -zoom $zoom $zoom
+	$::img2 blank
+	$::img2 copy $::img3 -subsample $subs $subs
+    } else {
+	$::img2 blank
+	$::img2 copy $::img -zoom $zoom $zoom -subsample $subs $subs
+    }
+}
+#
+# zoom then subsample, 
+# so source pixel srcX gets zoomed to fill srcX*zoom .. (srcX+1)*zoom
+# and then we subsample every subsampleX pixel
+# so for 2/3 we have 0 0 1 1 2 2 3 3 4 4 5 5 6 6
+# yields 0 (0 1) 1 (2 2) 3 (3 4) 4 (5 5) 6 (6)
+# 
